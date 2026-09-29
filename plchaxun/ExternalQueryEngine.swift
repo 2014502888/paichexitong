@@ -21,6 +21,15 @@ final class ExternalQueryEngine: ObservableObject {
     private var currentTask: Task<Void, Never>?
     private let ticker = Ticker()
 
+    deinit {
+        currentTask?.cancel()
+        ticker.stop()
+        if backgroundTaskID != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskID)
+            backgroundTaskID = .invalid
+        }
+    }
+
     var successResults: [ExternalMailResult] {
         // 成功界面每个单号只保留一条（真正查询成功的），本批重复过的打上"重复"标记
         var list = results.filter { $0.status.isSuccess }
