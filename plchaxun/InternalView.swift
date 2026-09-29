@@ -124,6 +124,11 @@ final class InternalQueryEngine: ObservableObject {
     private var currentTask: Task<Void, Never>?
     private let ticker = InternalTicker()
 
+    deinit {
+        currentTask?.cancel()
+        ticker.stop()
+    }
+
     var successResults: [InternalMailResult] { results.filter { $0.error == nil && !$0.isDuplicate } }
     var failedResults: [InternalMailResult] { results.filter { $0.error != nil } }
     var duplicateResults: [InternalMailResult] { results.filter { $0.isDuplicate } }
