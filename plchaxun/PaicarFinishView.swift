@@ -23,23 +23,6 @@ struct PaicarFinishView: View {
     private let minImages = 4
     private let maxImages = 4
 
-    private var pendingDir: URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("pending_photos/\(orderId)", isDirectory: true)
-    }
-    private func savePhotoToDisk(_ data: Data, fileName: String) {
-        try? FileManager.default.createDirectory(at: pendingDir, withIntermediateDirectories: true)
-        try? data.write(to: pendingDir.appendingPathComponent(fileName))
-    }
-    private func loadPendingPhotos() {
-        guard let files = try? FileManager.default.contentsOfDirectory(at: pendingDir, includingPropertiesForKeys: nil) else { return }
-        for f in files where f.pathExtension == "jpg" {
-            if let data = try? Data(contentsOf: f) {
-                draftImages.append(DraftImage(fileName: f.lastPathComponent, data: data, uploaded: false))
-            }
-        }
-    }
-
     private var photoOnly: Bool { mode == "photos" }
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
@@ -161,7 +144,6 @@ struct PaicarFinishView: View {
         .interactiveEdgeSwipeBack { presentationMode.wrappedValue.dismiss() }
         .onAppear {
             if order == nil { load() }
-            loadPendingPhotos()
         }
         .overlay(
             Group {
@@ -181,8 +163,9 @@ struct PaicarFinishView: View {
                     if draftImages.count >= maxImages { break }
                     if let data = img.jpegData(compressionQuality: 0.85) {
                         let fileName = "img_\(Int(Date().timeIntervalSince1970 * 1000))_\(draftImages.count).jpg"
-                        savePhotoToDisk(data, fileName: fileName)
+                        try? data.write(to: draftDir().appendingPathComponent(fileName))
                         draftImages.append(DraftImage(fileName: fileName, data: data, uploaded: false))
+                        saveDraft()
                     }
                 }
                 if draftImages.count >= maxImages { toastMsg = "最多 \(maxImages) 张" }
@@ -196,8 +179,9 @@ struct PaicarFinishView: View {
                 }
                 if let data = image.jpegData(compressionQuality: 0.85) {
                     let fileName = "img_\(Int(Date().timeIntervalSince1970 * 1000))_\(draftImages.count).jpg"
-                    savePhotoToDisk(data, fileName: fileName)
+                    try? data.write(to: draftDir().appendingPathComponent(fileName))
                     draftImages.append(DraftImage(fileName: fileName, data: data, uploaded: false))
+                    saveDraft()
                 }
             }
         }
@@ -253,6 +237,7 @@ struct PaicarFinishView: View {
                     Button {
                         if !d.uploaded {
                             draftImages.remove(at: idx)
+                            saveDraft()
                         }
                     } label: {
                         Text(d.uploaded ? "已传 ✓" : "✕")

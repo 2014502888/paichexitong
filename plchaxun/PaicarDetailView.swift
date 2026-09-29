@@ -181,25 +181,58 @@ struct PaicarDetailView: View {
 
     private func photosGrid(_ o: PaicarDispatchOrder) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("装车照片")
+            Text("装车照片（点右上角×删除）")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundColor(fg)
                 .frame(maxWidth: .infinity)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
                 ForEach(Array(o.images.enumerated()), id: \.element.id) { idx, img in
-                    Button {
-                        previewIndex = idx
-                        showPreview = true
-                    } label: {
-                        PaicarRemoteImage(url: URL(string: PaicarApi.imageUrl(img.imageFile)))
-                            .frame(height: 72)
-                            .cornerRadius(4)
+                    ZStack(alignment: .topTrailing) {
+                        Button {
+                            previewIndex = idx
+                            showPreview = true
+                        } label: {
+                            PaicarRemoteImage(url: URL(string: PaicarApi.imageUrl(img.imageFile)))
+                                .frame(height: 72)
+                                .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                        Button {
+                            deleteImage(img)
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(.red)
+                                .background(Circle().fill(Color.white))
+                        }
+                        .offset(x: 6, y: -4)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
         .padding(8)
+    }
+
+    private func deleteImage(_ img: PaicarImage) {
+        guard let o = order else { return }
+        let alert = UIAlertController(title: "删除照片", message: "确认删除这张照片？", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+        alert.addAction(UIAlertAction(title: "删除", style: .destructive) { _ in
+            Task {
+                do {
+                    _ = try await PaicarApi.deleteImage(id: o.id, file: img.imageFile)
+                    toastMsg = "已删除"
+                    load()
+                } catch {
+                    toastMsg = (error as? PaicarError)?.errorDescription ?? "删除失败"
+                }
+            }
+        })
+        guard let host = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene }).first?.windows.first?.rootViewController else { return }
+        var top = host
+        while let p = top.presentedViewController { top = p }
+        top.present(alert, animated: true)
     }
 
     // MARK: 底部操作
