@@ -64,6 +64,8 @@ struct PaicarFinishView: View {
                             iconBtn("photo.on.rectangle", "相册") {
                                 showPhotoPicker = true
                             }
+                            .disabled(draftImages.count >= maxImages)
+                            .opacity(draftImages.count >= maxImages ? 0.4 : 1)
                             Text(photoOnly ? "装车照片" : "装车照片·共需要 \(minImages) 张")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(fg)
@@ -71,6 +73,8 @@ struct PaicarFinishView: View {
                             iconBtn("camera.fill", "拍照") {
                                 showCamera = true
                             }
+                            .disabled(draftImages.count >= maxImages)
+                            .opacity(draftImages.count >= maxImages ? 0.4 : 1)
                         }
                         .padding(.horizontal, 16)
 
