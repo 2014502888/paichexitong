@@ -1,32 +1,24 @@
-import SwiftUI
+﻿import SwiftUI
 
-// MARK: - 状态色与工具
-
+// MARK: - 鐘舵€佽壊涓庡伐鍏?
 enum PaicarStyle {
     static func statusColor(_ code: String) -> Color {
         switch code {
-        case "999": return Color(red: 0.61, green: 0.15, blue: 0.69)   // 紫
-        case "004": return Color(red: 0.30, green: 0.68, blue: 0.31)   // 绿
-        case "003": return Color(red: 1.0, green: 0.60, blue: 0.0)     // 橙
-        case "001": return Color(red: 0.08, green: 0.28, blue: 0.75)   // 蓝
-        default: return Color.gray
+        case "999": return Color(red: 0.61, green: 0.15, blue: 0.69)   // 绱?        case "004": return Color(red: 0.30, green: 0.68, blue: 0.31)   // 缁?        case "003": return Color(red: 1.0, green: 0.60, blue: 0.0)     // 姗?        case "001": return Color(red: 0.08, green: 0.28, blue: 0.75)   // 钃?        default: return Color.gray
         }
     }
 
-    /// 邮路去掉固定前缀"晋江南区电商-" / "南区电商-"（含-）
-    static func stripRoute(_ name: String) -> String {
-        if name.hasPrefix("晋江南区电商-") { return String(name.dropFirst(7)) }
-        if name.hasPrefix("南区电商-") { return String(name.dropFirst(5)) }
+    /// 閭矾鍘绘帀鍥哄畾鍓嶇紑"鏅嬫睙鍗楀尯鐢靛晢-" / "鍗楀尯鐢靛晢-"锛堝惈-锛?    static func stripRoute(_ name: String) -> String {
+        if name.hasPrefix("鏅嬫睙鍗楀尯鐢靛晢-") { return String(name.dropFirst(7)) }
+        if name.hasPrefix("鍗楀尯鐢靛晢-") { return String(name.dropFirst(5)) }
         return name
     }
 
-    /// 邮路 + 短名括号（对应安卓 routes 拼接）
-    static func routeLine(_ name: String, _ short: String) -> String {
+    /// 閭矾 + 鐭悕鎷彿锛堝搴斿畨鍗?routes 鎷兼帴锛?    static func routeLine(_ name: String, _ short: String) -> String {
         stripRoute(name) + (short.isEmpty ? "" : "(\(short))")
     }
 
-    /// 容积利用率
-    static func volRate(_ o: PaicarDispatchOrder) -> Int {
+    /// 瀹圭Н鍒╃敤鐜?    static func volRate(_ o: PaicarDispatchOrder) -> Int {
         var sum = 0.0
         for a in o.applyList { sum += Double(a.volume) ?? 0 }
         let cap = Double(o.volume) ?? 0
@@ -34,7 +26,7 @@ enum PaicarStyle {
         return Int((sum / cap * 100).rounded())
     }
 
-    /// 日期 yyyy-MM-dd（取前 10 位校验）
+    /// 鏃ユ湡 yyyy-MM-dd锛堝彇鍓?10 浣嶆牎楠岋級
     static func dayOf(_ t: String) -> String {
         let s = t.trimmingCharacters(in: .whitespacesAndNewlines)
         if s.count >= 10 {
@@ -54,21 +46,19 @@ enum PaicarStyle {
     }
 }
 
-// MARK: - 派车单列表（对应 PaicarDispatchListFragment）
-
+// MARK: - 娲捐溅鍗曞垪琛紙瀵瑰簲 PaicarDispatchListFragment锛?
 struct PaicarDispatchListView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.presentationMode) private var presentationMode
 
-    // 数据
+    // 鏁版嵁
     @State private var showFinished = false
     @State private var applies: [PaicarApplyOrder] = []
     @State private var dispatches: [PaicarDispatchOrder] = []
     @State private var finishedList: [PaicarDispatchOrder] = []
     @State private var finishedPool: [PaicarDispatchOrder] = []
 
-    // 加载状态
-    @State private var loading = true
+    // 鍔犺浇鐘舵€?    @State private var loading = true
     @State private var loadingMore = false
     @State private var loadingMoreFinished = false
     @State private var loadingFinished = false
@@ -81,10 +71,9 @@ struct PaicarDispatchListView: View {
     @State private var error = ""
     @State private var finishedLoadedOnce = false
     @State private var finishedMoreCooldown = false
-    @State private var finishedCursor = ""   // 当前已显示到哪一天（yyyy-MM-dd）
-    @State private var pushApplyId: String?
+    @State private var finishedCursor = ""   // 褰撳墠宸叉樉绀哄埌鍝竴澶╋紙yyyy-MM-dd锛?    @State private var pushApplyId: String?
     @State private var pushDispatchId: String?
-    @State private var didInitialLoad = false   // 首次进入必加载（修复 onAppear 守卫 !loading 把首次加载挡住导致永远转圈）
+    @State private var didInitialLoad = false   // 棣栨杩涘叆蹇呭姞杞斤紙淇 onAppear 瀹堝崼 !loading 鎶婇娆″姞杞芥尅浣忓鑷存案杩滆浆鍦堬級
 
     // UI
     @State private var toastMsg: String?
@@ -93,8 +82,7 @@ struct PaicarDispatchListView: View {
     @State private var confirmRecall = false
     @State private var showDatePicker = false
     @State private var selectedDate = Date()
-    @State private var filterFinishedDay: String? = nil  // nil=当天, 否则筛选那天
-    @State private var loadingFiltered = false
+    @State private var filterFinishedDay: String? = nil  // nil=褰撳ぉ, 鍚﹀垯绛涢€夐偅澶?    @State private var loadingFiltered = false
     @State private var contentHeight: CGFloat = 0
     @State private var viewportHeight: CGFloat = 0
 
@@ -108,20 +96,20 @@ struct PaicarDispatchListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 全部 | 已结单 切换
+            // 鍏ㄩ儴 | 宸茬粨鍗?鍒囨崲
             HStack(spacing: 8) {
-                tabBtn("全部", active: !showFinished) { setShowFinished(false) }
-                tabBtn("已结单", active: showFinished) { setShowFinished(true) }
+                tabBtn("鍏ㄩ儴", active: !showFinished) { setShowFinished(false) }
+                tabBtn("宸茬粨鍗?, active: showFinished) { setShowFinished(true) }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
 
-            // 胶囊行：待派车/待分配/已分配（只在全部页显示）
+            // 鑳跺泭琛岋細寰呮淳杞?寰呭垎閰?宸插垎閰嶏紙鍙湪鍏ㄩ儴椤垫樉绀猴級
             if !showFinished && (!applies.isEmpty || !dispatches.isEmpty) {
                 HStack(spacing: 6) {
-                    capsule("待派车 \(applies.count)部", blue)
-                    capsule("待分配 \(dispatches.filter { $0.statusCode == "003" }.count)部", Color(red: 1.0, green: 0.60, blue: 0.0))
-                    capsule("已分配 \(dispatches.filter { $0.statusCode == "004" }.count)部", Color(red: 0.30, green: 0.68, blue: 0.31))
+                    capsule("寰呮淳杞?\(applies.count)閮?, blue)
+                    capsule("寰呭垎閰?\(dispatches.filter { $0.statusCode == "003" }.count)閮?, Color(red: 1.0, green: 0.60, blue: 0.0))
+                    capsule("宸插垎閰?\(dispatches.filter { $0.statusCode == "004" }.count)閮?, Color(red: 0.30, green: 0.68, blue: 0.31))
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
@@ -135,15 +123,15 @@ struct PaicarDispatchListView: View {
             } else if error.isEmpty == false && (showFinished ? finishedList.isEmpty : (applies.isEmpty && dispatches.isEmpty)) {
                 Spacer()
                 Text(error).font(.system(size: 14)).foregroundColor(fg)
-                Button("重试") { load() }
+                Button("閲嶈瘯") { load() }
                     .font(.system(size: 14))
                     .foregroundColor(blue)
                     .padding(.top, 12)
                 Spacer()
             } else if showFinished ? finishedList.isEmpty : (applies.isEmpty && dispatches.isEmpty) {
                 Spacer()
-                Text("📭").font(.system(size: 50))
-                Text(showFinished ? "暂无已结单" : "暂无派车单")
+                Text("馃摥").font(.system(size: 50))
+                Text(showFinished ? "鏆傛棤宸茬粨鍗? : "鏆傛棤娲捐溅鍗?)
                     .font(.system(size: 16))
                     .foregroundColor(fg)
                 Spacer()
@@ -163,7 +151,7 @@ struct PaicarDispatchListView: View {
                                     moreHint(isLast: isLast)
                                 }
                             }
-                            // 底部哨兵：滚动到底触发加载（配合冷却实现一次手势最多加载一天）
+                            // 搴曢儴鍝ㄥ叺锛氭粴鍔ㄥ埌搴曡Е鍙戝姞杞斤紙閰嶅悎鍐峰嵈瀹炵幇涓€娆℃墜鍔挎渶澶氬姞杞戒竴澶╋級
                             GeometryReader { geo in
                                 Color.clear
                                     .onAppear {
@@ -211,33 +199,32 @@ struct PaicarDispatchListView: View {
                 }
             }
         )
-        // "＋"菜单由外部顶栏持有（PaicarDispatchListToolbar）
-        .confirmationDialog("操作", isPresented: $showMenu, titleVisibility: .visible) {
-            Button("派车申请") { newApply() }
-            Button("一键申请") { quickApply() }
-            Button("一键撤回") { quickRecall() }
-            Button("申请配置") {
+        // "锛?鑿滃崟鐢卞閮ㄩ《鏍忔寔鏈夛紙PaicarDispatchListToolbar锛?        .confirmationDialog("鎿嶄綔", isPresented: $showMenu, titleVisibility: .visible) {
+            Button("娲捐溅鐢宠") { newApply() }
+            Button("涓€閿敵璇?) { quickApply() }
+            Button("涓€閿挙鍥?) { quickRecall() }
+            Button("鐢宠閰嶇疆") {
                 NotificationCenter.default.post(name: .paicarOpenQuickEdit, object: nil)
             }
-            Button("取消", role: .cancel) {}
+            Button("鍙栨秷", role: .cancel) {}
         }
         .sheet(isPresented: $showDatePicker) {
             VStack(spacing: 16) {
-                Text("选择日期").font(.system(size: 16, weight: .bold)).padding(.top, 16)
+                Text("閫夋嫨鏃ユ湡").font(.system(size: 16, weight: .bold)).padding(.top, 16)
                 DatePicker("", selection: $selectedDate, displayedComponents: [.date])
                     .datePickerStyle(.wheel)
                     .labelsHidden()
                     .frame(height: 200)
                 HStack(spacing: 20) {
-                    Button("取消") { showDatePicker = false }
+                    Button("鍙栨秷") { showDatePicker = false }
                         .foregroundColor(.secondary)
-                    Button("今天") {
+                    Button("浠婂ぉ") {
                         selectedDate = Date()
                         filterFinishedDay = nil
                         showDatePicker = false
                     }
                     .foregroundColor(.blue)
-                    Button("确定") {
+                    Button("纭畾") {
                         let fmt = DateFormatter()
                         fmt.dateFormat = "yyyy-MM-dd"
                         let d = fmt.string(from: selectedDate)
@@ -246,7 +233,6 @@ struct PaicarDispatchListView: View {
                         loadFinishedForDate(d)
                     }
                     .foregroundColor(.blue)
-                    .fontWeight(.semibold)
                 }
                 Spacer()
             }
@@ -257,9 +243,8 @@ struct PaicarDispatchListView: View {
                 didInitialLoad = true
                 load()
             } else if PaicarFlags.dispatchDirty || PaicarFlags.finishedDirty {
-                // 结单/撤回/提交成功后回到列表: 脏标记表示数据已变, 必须重载全部列表;
-                // 之前只在"列表为空"时才重载, 导致刚结单完还卡在旧数据不刷新。
-                PaicarFlags.dispatchDirty = false
+                // 缁撳崟/鎾ゅ洖/鎻愪氦鎴愬姛鍚庡洖鍒板垪琛? 鑴忔爣璁拌〃绀烘暟鎹凡鍙? 蹇呴』閲嶈浇鍏ㄩ儴鍒楄〃;
+                // 涔嬪墠鍙湪"鍒楄〃涓虹┖"鏃舵墠閲嶈浇, 瀵艰嚧鍒氱粨鍗曞畬杩樺崱鍦ㄦ棫鏁版嵁涓嶅埛鏂般€?                PaicarFlags.dispatchDirty = false
                 PaicarFlags.finishedDirty = false
                 if showFinished { loadFinished() }
                 load()
@@ -267,10 +252,9 @@ struct PaicarDispatchListView: View {
                 load()
             }
         }
-        // 右缘左滑返回：从已结单子tab切回全部
+        // 鍙崇紭宸︽粦杩斿洖锛氫粠宸茬粨鍗曞瓙tab鍒囧洖鍏ㄩ儴
         .onReceive(NotificationCenter.default.publisher(for: .paicarBackToAllList)) { _ in
-            // 结单成功后: 强制切回"全部", 并按脏标记刷新全部列表
-            // (全部只归类待分配/待派车/已分配, 刚结的单自然从全部消失)
+            // 缁撳崟鎴愬姛鍚? 寮哄埗鍒囧洖"鍏ㄩ儴", 骞舵寜鑴忔爣璁板埛鏂板叏閮ㄥ垪琛?            // (鍏ㄩ儴鍙綊绫诲緟鍒嗛厤/寰呮淳杞?宸插垎閰? 鍒氱粨鐨勫崟鑷劧浠庡叏閮ㄦ秷澶?
             if showFinished { showFinished = false; filterFinishedDay = nil }
             if PaicarFlags.dispatchDirty || PaicarFlags.finishedDirty {
                 PaicarFlags.dispatchDirty = false
@@ -278,8 +262,7 @@ struct PaicarDispatchListView: View {
                 load()
             }
         }
-        // 顶栏 + 按钮：弹出操作菜单
-        .onReceive(NotificationCenter.default.publisher(for: .paicarShowMenu)) { _ in
+        // 椤舵爮 + 鎸夐挳锛氬脊鍑烘搷浣滆彍鍗?        .onReceive(NotificationCenter.default.publisher(for: .paicarShowMenu)) { _ in
             if showFinished {
                 showDatePicker = true
             } else {
@@ -319,27 +302,26 @@ struct PaicarDispatchListView: View {
         }
     }
 
-    // MARK: 加载
+    // MARK: 鍔犺浇
 
     private func setShowFinished(_ v: Bool) {
         showFinished = v
         filterFinishedDay = nil
-        if v { loadFinished() } else { /* renderList 自动 */ }
+        if v { loadFinished() } else { /* renderList 鑷姩 */ }
     }
 
     private func load() {
         loading = true
         error = ""
-        // UI 级硬超时兜底：即使网络层极端异常，16 秒内必结束转圈并显示错误，不再无限转圈
-        DispatchQueue.main.asyncAfter(deadline: .now() + 16) {
+        // UI 绾х‖瓒呮椂鍏滃簳锛氬嵆浣跨綉缁滃眰鏋佺寮傚父锛?6 绉掑唴蹇呯粨鏉熻浆鍦堝苟鏄剧ず閿欒锛屼笉鍐嶆棤闄愯浆鍦?        DispatchQueue.main.asyncAfter(deadline: .now() + 16) {
             guard self.loading else { return }
             self.loading = false
-            self.error = "加载超时（网络无响应），请检查网络后重试"
+            self.error = "鍔犺浇瓒呮椂锛堢綉缁滄棤鍝嶅簲锛夛紝璇锋鏌ョ綉缁滃悗閲嶈瘯"
         }
         Task {
             do {
                 let p = try await PaicarProfileHolder.load()
-                // 串行请求；超时已下沉到 PaicarApi.perform（回调版+强制取消，15 秒内必出结果，不再无限转圈）
+                // 涓茶璇锋眰锛涜秴鏃跺凡涓嬫矇鍒?PaicarApi.perform锛堝洖璋冪増+寮哄埗鍙栨秷锛?5 绉掑唴蹇呭嚭缁撴灉锛屼笉鍐嶆棤闄愯浆鍦堬級
                 let rawApplies = try await PaicarApi.applyOrderList(organId: p.organId, rolesId: p.rolesId)
                 let rawDispatch = try await PaicarApi.dispatchOrderList(organId: p.organId, rolesId: p.rolesId, page: 1, perpage: 20)
                 dispatchPage = 1
@@ -388,11 +370,10 @@ struct PaicarDispatchListView: View {
         }
     }
 
-    /// 首次进入已结单：从第 1 页翻到找到 999 状态单为止（最多 50 页），取当天数据
+    /// 棣栨杩涘叆宸茬粨鍗曪細浠庣 1 椤电炕鍒版壘鍒?999 鐘舵€佸崟涓烘锛堟渶澶?50 椤碉級锛屽彇褰撳ぉ鏁版嵁
     private func loadFinished() {
         if loadingFinished { return }
-        // 已加载过且无新结单：直接显示已加载数据，不重复读服务器
-        if finishedLoadedOnce && !PaicarFlags.finishedDirty {
+        // 宸插姞杞借繃涓旀棤鏂扮粨鍗曪細鐩存帴鏄剧ず宸插姞杞芥暟鎹紝涓嶉噸澶嶈鏈嶅姟鍣?        if finishedLoadedOnce && !PaicarFlags.finishedDirty {
             return
         }
         if PaicarFlags.finishedDirty {
@@ -446,8 +427,7 @@ struct PaicarDispatchListView: View {
         if raw.count < 20 || finishedPage >= 50 { exhausted = true }
     }
 
-    /// 选日期后：从最新往回翻页，直到加载到目标日期
-    private func loadFinishedForDate(_ day: String) {
+    /// 閫夋棩鏈熷悗锛氫粠鏈€鏂板線鍥炵炕椤碉紝鐩村埌鍔犺浇鍒扮洰鏍囨棩鏈?    private func loadFinishedForDate(_ day: String) {
         loadingFiltered = true
         finishedPool.removeAll()
         finishedPage = 0
@@ -465,7 +445,7 @@ struct PaicarDispatchListView: View {
         }
     }
 
-    /// 继续翻页加载前一天（一次手势最多一天）
+    /// 缁х画缈婚〉鍔犺浇鍓嶄竴澶╋紙涓€娆℃墜鍔挎渶澶氫竴澶╋級
     private func loadMoreFinished() {
         if loadingMoreFinished || !hasMoreFinished || loadingFinished || !showFinished { return }
         loadingMoreFinished = true
@@ -498,8 +478,7 @@ struct PaicarDispatchListView: View {
         }
     }
 
-    /// 滚动到底触发：配合冷却，一次手势最多加载一天
-    private func onReachBottom() {
+    /// 婊氬姩鍒板簳瑙﹀彂锛氶厤鍚堝喎鍗达紝涓€娆℃墜鍔挎渶澶氬姞杞戒竴澶?    private func onReachBottom() {
         if finishedMoreCooldown {
             finishedMoreCooldown = false
             return
@@ -508,18 +487,17 @@ struct PaicarDispatchListView: View {
         if showFinished { loadMoreFinished() } else { loadMoreDispatch() }
     }
 
-    // MARK: 提示条
-
+    // MARK: 鎻愮ず鏉?
     private func moreHint(isLast: Bool) -> some View {
         let canMore = loadingMore || loadingMoreFinished ? false : (showFinished ? hasMoreFinished : hasMoreDispatch)
         let text: String = {
-            if loadingMore || loadingMoreFinished { return "加载中…" }
+            if loadingMore || loadingMoreFinished { return "鍔犺浇涓€? }
             if !canMore && isLast {
-                return showFinished ? "没有更多了" : "当前还有 \(applies.count + dispatches.count) 部车未结单"
+                return showFinished ? "娌℃湁鏇村浜? : "褰撳墠杩樻湁 \(applies.count + dispatches.count) 閮ㄨ溅鏈粨鍗?
             }
-            if !canMore { return "查看更多" }
-            if canScrollDown { return "下滑查看更多" }
-            return "点击查看更多"
+            if !canMore { return "鏌ョ湅鏇村" }
+            if canScrollDown { return "涓嬫粦鏌ョ湅鏇村" }
+            return "鐐瑰嚮鏌ョ湅鏇村"
         }()
         return Button {
             finishedMoreCooldown = false
@@ -534,20 +512,20 @@ struct PaicarDispatchListView: View {
         .disabled(!canMore)
     }
 
-    // MARK: 卡片
+    // MARK: 鍗＄墖
 
     private func applyCard(_ o: PaicarApplyOrder) -> some View {
         HStack(spacing: 0) {
             Spacer(minLength: 8)
             VStack(spacing: 4) {
-                statusTag((o.statusName.isEmpty ? "待派车" : o.statusName), PaicarStyle.statusColor(o.statusCode))
+                statusTag((o.statusName.isEmpty ? "寰呮淳杞? : o.statusName), PaicarStyle.statusColor(o.statusCode))
                 Text(o.orderNumber).font(.system(size: 15, weight: .bold)).foregroundColor(.white)
-                Text("客户 \(o.customerName)").font(.system(size: 13)).foregroundColor(.white)
+                Text("瀹㈡埛 \(o.customerName)").font(.system(size: 13)).foregroundColor(.white)
                 Text(PaicarStyle.routeLine(o.routeName.isEmpty ? o.routeShortName : o.routeName, o.liaisonName)).font(.system(size: 13)).foregroundColor(.white)
-                Text("\(o.number)件 · \(o.carSpecs) · \(o.arrivalTime)")
+                Text("\(o.number)浠?路 \(o.carSpecs) 路 \(o.arrivalTime)")
                     .font(.system(size: 12)).foregroundColor(Color(white: 0.95))
                 if !o.createTime.isEmpty {
-                    Text("登记 \(o.createName) \(o.createTime)")
+                    Text("鐧昏 \(o.createName) \(o.createTime)")
                         .font(.system(size: 12)).foregroundColor(Color(white: 0.95))
                 }
             }
@@ -564,39 +542,39 @@ struct PaicarDispatchListView: View {
         let customers = o.applyList.map { $0.customerName }.filter { !$0.isEmpty }
         let routes = o.applyList.map { PaicarStyle.routeLine($0.routeName, $0.routeShortName) }
         let creators = o.applyList.filter { !$0.createName.isEmpty }
-            .map { "\($0.createName) \($0.createTime) 申请派车" }
+            .map { "\($0.createName) \($0.createTime) 鐢宠娲捐溅" }
         return HStack(spacing: 0) {
             Spacer(minLength: 8)
             VStack(spacing: 4) {
                 statusTag(status, PaicarStyle.statusColor(o.statusCode), size: 15)
                 if let first = o.applyList.first {
-                    Text("到达时间:\(first.arrivalTime)").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
+                    Text("鍒拌揪鏃堕棿:\(first.arrivalTime)").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                 }
                 if !customers.isEmpty {
-                    Text(customers.joined(separator: "、")).font(.system(size: 15, weight: .bold)).foregroundColor(.white)
+                    Text(customers.joined(separator: "銆?)).font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                 }
                 if !routes.isEmpty {
-                    Text(routes.joined(separator: "、")).font(.system(size: 15, weight: .bold)).foregroundColor(.white)
+                    Text(routes.joined(separator: "銆?)).font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                 }
                 if !o.carNo.isEmpty || !o.driverName.isEmpty {
                     Text("\(o.carNo) \(o.driverName) \(o.driverPhone)")
                         .font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                 }
                 if !o.applyList.isEmpty {
-                    Text("派车单：\(o.orderNumber)  车辆规格：\(o.specs)")
+                    Text("娲捐溅鍗曪細\(o.orderNumber)  杞﹁締瑙勬牸锛歕(o.specs)")
                         .font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                 }
                 ForEach(Array(creators.enumerated()), id: \.offset) { _, c in
                     Text(c).font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                 }
                 if !o.createName.isEmpty {
-                    Text("\(o.createName) \(o.createTime) 创建派车").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
+                    Text("\(o.createName) \(o.createTime) 鍒涘缓娲捐溅").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                 }
                 if !o.receiveName.isEmpty {
-                    Text("\(o.receiveName) \(o.receiveTime) 分配车辆").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
+                    Text("\(o.receiveName) \(o.receiveTime) 鍒嗛厤杞﹁締").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                 }
                 if showFinished {
-                    Text("车辆 \(o.specs) · 装载 \(o.loadingNum) 件 · 装载率 \(PaicarStyle.volRate(o))%")
+                    Text("杞﹁締 \(o.specs) 路 瑁呰浇 \(o.loadingNum) 浠?路 瑁呰浇鐜?\(PaicarStyle.volRate(o))%")
                         .font(.system(size: 13)).foregroundColor(Color(white: 0.95))
                 }
             }
@@ -637,7 +615,7 @@ struct PaicarDispatchListView: View {
         }
     }
 
-    // MARK: 菜单操作
+    // MARK: 鑿滃崟鎿嶄綔
 
     private func newApply() {
         NotificationCenter.default.post(name: .paicarOpenNewApply, object: nil)
@@ -646,13 +624,13 @@ struct PaicarDispatchListView: View {
     private func quickApply() {
         let cars = PaicarApi.loadQuickCars().filter { $0["enabled"] == "1" }
         if cars.isEmpty {
-            toastMsg = "请先去配置界面填写相关信息"
+            toastMsg = "璇峰厛鍘婚厤缃晫闈㈠～鍐欑浉鍏充俊鎭?
             return
         }
-        // 二次确认
-        let alert = UIAlertController(title: "确认一键申请？", message: "将按配置批量创建 \(cars.count) 张申请单", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        alert.addAction(UIAlertAction(title: "确认申请", style: .default) { _ in
+        // 浜屾纭
+        let alert = UIAlertController(title: "纭涓€閿敵璇凤紵", message: "灏嗘寜閰嶇疆鎵归噺鍒涘缓 \(cars.count) 寮犵敵璇峰崟", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "鍙栨秷", style: .cancel))
+        alert.addAction(UIAlertAction(title: "纭鐢宠", style: .default) { _ in
             runQuickApply(cars: cars)
         })
         present(alert)
@@ -676,9 +654,9 @@ struct PaicarDispatchListView: View {
             for id in newIds where !ids.contains(id) { ids.append(id) }
             PaicarApi.saveQuickIds(ids)
             if failLog.isEmpty {
-                toastMsg = "成功创建 \(okCount)/\(cars.count) 张申请单"
+                toastMsg = "鎴愬姛鍒涘缓 \(okCount)/\(cars.count) 寮犵敵璇峰崟"
             } else {
-                toastMsg = "创建完成 \(okCount)/\(cars.count) 张，\(failLog.joined(separator: "\n"))"
+                toastMsg = "鍒涘缓瀹屾垚 \(okCount)/\(cars.count) 寮狅紝\(failLog.joined(separator: "\n"))"
             }
             load()
         }
@@ -687,12 +665,12 @@ struct PaicarDispatchListView: View {
     private func quickRecall() {
         let ids = PaicarApi.loadQuickIds()
         if ids.isEmpty {
-            toastMsg = "没有可撤回的申请单"
+            toastMsg = "娌℃湁鍙挙鍥炵殑鐢宠鍗?
             return
         }
-        let alert = UIAlertController(title: "确认一键撤回？", message: "将撤回并删除所有快捷申请单", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        alert.addAction(UIAlertAction(title: "确认撤回", style: .destructive) { _ in
+        let alert = UIAlertController(title: "纭涓€閿挙鍥烇紵", message: "灏嗘挙鍥炲苟鍒犻櫎鎵€鏈夊揩鎹风敵璇峰崟", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "鍙栨秷", style: .cancel))
+        alert.addAction(UIAlertAction(title: "纭鎾ゅ洖", style: .destructive) { _ in
             doQuickRecall(ids: ids)
         })
         present(alert)
@@ -713,15 +691,15 @@ struct PaicarDispatchListView: View {
                 }
             }
             if authFailed {
-                toastMsg = "登录已失效，请重新登录"
+                toastMsg = "鐧诲綍宸插け鏁堬紝璇烽噸鏂扮櫥褰?
                 load()
                 return
             }
             PaicarApi.saveQuickIds([])
             if fail == 0 {
-                toastMsg = "已全部撤回并删除"
+                toastMsg = "宸插叏閮ㄦ挙鍥炲苟鍒犻櫎"
             } else {
-                toastMsg = "已处理（\(fail) 张失败）"
+                toastMsg = "宸插鐞嗭紙\(fail) 寮犲け璐ワ級"
             }
             load()
         }
