@@ -222,36 +222,35 @@ struct PaicarDispatchListView: View {
             Button("取消", role: .cancel) {}
         }
         .sheet(isPresented: $showDatePicker) {
-            NavigationView {
-                VStack(spacing: 16) {
-                    DatePicker("", selection: $selectedDate, displayedComponents: [.date])
-                        .datePickerStyle(.wheel)
-                        .labelsHidden()
-                        .frame(height: 200)
-                    HStack(spacing: 20) {
-                        Button("取消") { showDatePicker = false }
-                            .foregroundColor(.secondary)
-                        Button("今天") {
-                            selectedDate = Date()
-                            filterFinishedDay = nil
-                            showDatePicker = false
-                        }
-                        .foregroundColor(.blue)
-                        Button("确定") {
-                            let fmt = DateFormatter()
-                            fmt.dateFormat = "yyyy-MM-dd"
-                            filterFinishedDay = fmt.string(from: selectedDate)
-                            showDatePicker = false
-                            loadFinishedForDate(filterFinishedDay!)
-                        }
-                        .foregroundColor(.blue)
-                        .fontWeight(.semibold)
+            VStack(spacing: 16) {
+                Text("选择日期").font(.system(size: 16, weight: .bold)).padding(.top, 16)
+                DatePicker("", selection: $selectedDate, displayedComponents: [.date])
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .frame(height: 200)
+                HStack(spacing: 20) {
+                    Button("取消") { showDatePicker = false }
+                        .foregroundColor(.secondary)
+                    Button("今天") {
+                        selectedDate = Date()
+                        filterFinishedDay = nil
+                        showDatePicker = false
                     }
+                    .foregroundColor(.blue)
+                    Button("确定") {
+                        let fmt = DateFormatter()
+                        fmt.dateFormat = "yyyy-MM-dd"
+                        let d = fmt.string(from: selectedDate)
+                        filterFinishedDay = d
+                        showDatePicker = false
+                        loadFinishedForDate(d)
+                    }
+                    .foregroundColor(.blue)
+                    .fontWeight(.semibold)
                 }
-                .padding()
-                .navigationTitle("选择日期")
-                .navigationBarTitleDisplayMode(.inline)
+                Spacer()
             }
+            .padding()
         }
         .onAppear {
             if !didInitialLoad {
