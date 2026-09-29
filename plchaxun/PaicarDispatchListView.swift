@@ -222,7 +222,7 @@ struct PaicarDispatchListView: View {
             Button("取消", role: .cancel) {}
         }
         .sheet(isPresented: $showDatePicker) {
-            NavigationStack {
+            NavigationView {
                 VStack(spacing: 16) {
                     DatePicker("", selection: $selectedDate, displayedComponents: [.date])
                         .datePickerStyle(.wheel)
