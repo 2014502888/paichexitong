@@ -220,7 +220,7 @@ struct PaicarDetailView: View {
         alert.addAction(UIAlertAction(title: "删除", style: .destructive) { _ in
             Task {
                 do {
-                    _ = try await PaicarApi.deleteImage(id: o.id, file: img.imageFile)
+                    _ = try await PaicarApi.deleteImage(id: img.id, file: img.imageFile)
                     toastMsg = "已删除"
                     load()
                 } catch {
