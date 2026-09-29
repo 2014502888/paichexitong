@@ -1,0 +1,85 @@
+name: Build iOS
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Install XcodeGen
+        run: brew install xcodegen || echo "xcodegen already installed"
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build for device (arm64, unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project plchaxun.xcodeproj \
+            -scheme plchaxun \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            2>&1 | tee build_log.txt
+          echo "===== ERROR LINES ====="
+          grep -E "error:" build_log.txt || echo "(no error: lines)"
+          echo "======================="
+
+      - name: Upload build log on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: |
+            build_log.txt
+            build/dd/Build/Products
+          retention-days: 7
+
+      - name: Pack ipa (Payload/ structure)
+        run: |
+          set -e
+          echo "=== DerivedData Products ==="
+          find build/dd/Build/Products -maxdepth 3 -type d || true
+          APP_PATH="build/dd/Build/Products/Release-iphoneos/plchaxun.app"
+          echo "Looking for: $APP_PATH"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "APP not found, searching..."
+            APP_PATH=$(find build/dd/Build/Products -name "plchaxun.app" -type d | head -1)
+            echo "Found at: $APP_PATH"
+          fi
+          ls -la "$APP_PATH"
+          rm -rf build/ipabuild
+          mkdir -p build/ipabuild/Payload
+          cp -R "$APP_PATH" build/ipabuild/Payload/
+          cd build/ipabuild
+          zip -qr ../../plchaxun.ipa Payload
+          cd ../..
+          ls -la plchaxun.ipa
+
+      - name: Upload ipa artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plchaxun-ipa
+          path: plchaxun.ipa
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,8 @@
+﻿git : error: src refspec main does not match any
+所在位置 行:1 字符: 354
++ ... "; $env:GIT_TERMINAL_PROMPT="0"; git push -f origin main 2>&1 | Out-F ...
++                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (error: src refs...s not match any:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+error: failed to push some refs to 'https://github.com/2014502888/paichexitong.git'
