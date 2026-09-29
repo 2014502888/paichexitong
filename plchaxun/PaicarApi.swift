@@ -444,7 +444,7 @@ enum PaicarApi {
             "customer_id": spec["customerId"] ?? "",
             "customerName": spec["customerName"] ?? "",
             "number": spec["number"] ?? "",
-            "shipment": spec["shipment"] == "1" ? 1 : 0,
+            "shipment": 1,
         ]]
         let jsonData = try JSONSerialization.data(withJSONObject: cust)
         let json = String(data: jsonData, encoding: .utf8) ?? ""
