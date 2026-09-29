@@ -286,7 +286,15 @@ struct PaicarQuickEditView: View {
                 specList = specs.map { PaicarCarSpec.fromJson($0) }
                 loading = false
                 let saved = PaicarApi.loadQuickCars()
-                rows = saved.isEmpty ? defaultRows() : saved
+                var loaded = saved.isEmpty ? defaultRows() : saved
+                for i in loaded.indices {
+                    if (loaded[i]["customerId"] ?? "").isEmpty,
+                       let cname = loaded[i]["customerName"], !cname.isEmpty,
+                       let c = customerList.first(where: { $0.name == cname }) {
+                        loaded[i]["customerId"] = c.id
+                    }
+                }
+                rows = loaded
             } catch PaicarError.authExpired {
                 loading = false
             } catch {
@@ -304,6 +312,11 @@ struct PaicarQuickEditView: View {
         var cleaned = rows
         for i in cleaned.indices {
             if cleaned[i]["enabled"] == "1" {
+                let cname = cleaned[i]["customerName"] ?? ""
+                if (cleaned[i]["customerId"] ?? "").isEmpty, !cname.isEmpty,
+                   let c = customerList.first(where: { $0.name == cname }) {
+                    cleaned[i]["customerId"] = c.id
+                }
                 let liaName = cleaned[i]["liaisonName"] ?? ""
                 if let l = liaisonList.first(where: { $0.name == liaName }) {
                     cleaned[i]["liaisonId"] = l.id
