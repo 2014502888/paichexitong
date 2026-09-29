@@ -272,7 +272,7 @@ struct PaicarDispatchListView: View {
         .onReceive(NotificationCenter.default.publisher(for: .paicarBackToAllList)) { _ in
             // 结单成功后: 强制切回"全部", 并按脏标记刷新全部列表
             // (全部只归类待分配/待派车/已分配, 刚结的单自然从全部消失)
-            if showFinished { showFinished = false }
+            if showFinished { showFinished = false; filterFinishedDay = nil }
             if PaicarFlags.dispatchDirty || PaicarFlags.finishedDirty {
                 PaicarFlags.dispatchDirty = false
                 PaicarFlags.finishedDirty = false
@@ -450,6 +450,9 @@ struct PaicarDispatchListView: View {
     /// 选日期后：从最新往回翻页，直到加载到目标日期
     private func loadFinishedForDate(_ day: String) {
         loadingFiltered = true
+        finishedPool.removeAll()
+        finishedPage = 0
+        exhausted = false
         Task {
             do {
                 let p = try await PaicarProfileHolder.load()
