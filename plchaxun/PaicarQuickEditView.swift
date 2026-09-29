@@ -250,9 +250,6 @@ struct PaicarQuickEditView: View {
         case "customer":
             rows[i]["customerId"] = id
             rows[i]["customerName"] = name
-            if rows[i]["carSpecs"]?.isEmpty ?? true {
-                rows[i]["carSpecs"] = "9.6"
-            }
         case "spec":
             rows[i]["carSpecs"] = name
             if name.contains("5.3") { rows[i]["number"] = "1000" }

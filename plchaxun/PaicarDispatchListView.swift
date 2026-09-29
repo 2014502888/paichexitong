@@ -91,6 +91,10 @@ struct PaicarDispatchListView: View {
     @State private var showMenu = false
     @State private var confirmApply = false
     @State private var confirmRecall = false
+    @State private var showDatePicker = false
+    @State private var selectedDate = Date()
+    @State private var filterFinishedDay: String? = nil  // nil=当天, 否则筛选那天
+    @State private var loadingFiltered = false
     @State private var contentHeight: CGFloat = 0
     @State private var viewportHeight: CGFloat = 0
 
@@ -217,6 +221,38 @@ struct PaicarDispatchListView: View {
             }
             Button("取消", role: .cancel) {}
         }
+        .sheet(isPresented: $showDatePicker) {
+            NavigationStack {
+                VStack(spacing: 16) {
+                    DatePicker("", selection: $selectedDate, displayedComponents: [.date])
+                        .datePickerStyle(.wheel)
+                        .labelsHidden()
+                        .frame(height: 200)
+                    HStack(spacing: 20) {
+                        Button("取消") { showDatePicker = false }
+                            .foregroundColor(.secondary)
+                        Button("今天") {
+                            selectedDate = Date()
+                            filterFinishedDay = nil
+                            showDatePicker = false
+                        }
+                        .foregroundColor(.blue)
+                        Button("确定") {
+                            let fmt = DateFormatter()
+                            fmt.dateFormat = "yyyy-MM-dd"
+                            filterFinishedDay = fmt.string(from: selectedDate)
+                            showDatePicker = false
+                            loadFinishedForDate(filterFinishedDay!)
+                        }
+                        .foregroundColor(.blue)
+                        .fontWeight(.semibold)
+                    }
+                }
+                .padding()
+                .navigationTitle("选择日期")
+                .navigationBarTitleDisplayMode(.inline)
+            }
+        }
         .onAppear {
             if !didInitialLoad {
                 didInitialLoad = true
@@ -245,7 +281,11 @@ struct PaicarDispatchListView: View {
         }
         // 顶栏 + 按钮：弹出操作菜单
         .onReceive(NotificationCenter.default.publisher(for: .paicarShowMenu)) { _ in
-            showMenu = true
+            if showFinished {
+                showDatePicker = true
+            } else {
+                showMenu = true
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .paicarReloadAfterLogin)) { _ in
             load()
@@ -254,14 +294,20 @@ struct PaicarDispatchListView: View {
 
     private var renderedItems: [PaicarListItem] {
         if showFinished {
+            let source: [PaicarDispatchOrder]
+            if let fd = filterFinishedDay {
+                source = finishedPool.filter { PaicarStyle.dayOf($0.createTime) == fd }
+            } else {
+                source = finishedList
+            }
             var l: [PaicarListItem] = []
             var i = 0
-            while i < finishedList.count {
-                let day = PaicarStyle.dayOf(finishedList[i].createTime)
+            while i < source.count {
+                let day = PaicarStyle.dayOf(source[i].createTime)
                 var end = i + 1
-                while end < finishedList.count && PaicarStyle.dayOf(finishedList[end].createTime) == day { end += 1 }
-                for k in i..<end { l.append(.dispatch(finishedList[k])) }
-                l.append(.hint(end >= finishedList.count))
+                while end < source.count && PaicarStyle.dayOf(source[end].createTime) == day { end += 1 }
+                for k in i..<end { l.append(.dispatch(source[k])) }
+                l.append(.hint(true))
                 i = end
             }
             return l
@@ -278,6 +324,7 @@ struct PaicarDispatchListView: View {
 
     private func setShowFinished(_ v: Bool) {
         showFinished = v
+        filterFinishedDay = nil
         if v { loadFinished() } else { /* renderList 自动 */ }
     }
 
@@ -398,6 +445,22 @@ struct PaicarDispatchListView: View {
             if o.statusCode == "999" { finishedPool.append(o) }
         }
         if raw.count < 20 || finishedPage >= 50 { exhausted = true }
+    }
+
+    /// 选日期后：从最新往回翻页，直到加载到目标日期
+    private func loadFinishedForDate(_ day: String) {
+        loadingFiltered = true
+        Task {
+            do {
+                let p = try await PaicarProfileHolder.load()
+                while finishedPool.contains(where: { PaicarStyle.dayOf($0.createTime) == day }) == false && !exhausted && finishedPage < 50 {
+                    try await fetchFinishedPage(p: p)
+                }
+                loadingFiltered = false
+            } catch {
+                loadingFiltered = false
+            }
+        }
     }
 
     /// 继续翻页加载前一天（一次手势最多一天）
@@ -531,7 +594,7 @@ struct PaicarDispatchListView: View {
                     Text("\(o.receiveName) \(o.receiveTime) 分配车辆").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                 }
                 if showFinished {
-                    Text("车辆 \(o.specs)米 · 装载 \(o.loadingNum) 件 · 装载率 \(PaicarStyle.volRate(o))%")
+                    Text("车辆 \(o.specs) · 装载 \(o.loadingNum) 件 · 装载率 \(PaicarStyle.volRate(o))%")
                         .font(.system(size: 13)).foregroundColor(Color(white: 0.95))
                 }
             }
