@@ -8,7 +8,7 @@ struct PaicarRemoteImage: View {
     @State private var image: UIImage?
 
     private static let cache: URLCache = {
-        URLCache(memoryCapacity: 50*1024*1024, diskCapacity: 200*1024*1024)
+        URLCache(memoryCapacity: 50*1024*1024, diskCapacity: 0)
     }()
 
     var body: some View {

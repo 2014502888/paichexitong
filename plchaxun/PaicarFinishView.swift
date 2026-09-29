@@ -168,15 +168,11 @@ struct PaicarFinishView: View {
                         saveDraft()
                     }
                 }
-                if draftImages.count >= maxImages { toastMsg = "最多 \(maxImages) 张" }
             }
         }
         .fullScreenCover(isPresented: $showCamera) {
             CameraCapture { image in
-                if draftImages.count >= maxImages {
-                    toastMsg = "最多 \(maxImages) 张"
-                    return
-                }
+                if draftImages.count >= maxImages { return }
                 if let data = image.jpegData(compressionQuality: 0.85) {
                     let fileName = "img_\(Int(Date().timeIntervalSince1970 * 1000))_\(draftImages.count).jpg"
                     try? data.write(to: draftDir().appendingPathComponent(fileName))
