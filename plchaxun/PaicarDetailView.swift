@@ -7,6 +7,10 @@ struct PaicarRemoteImage: View {
     let url: URL?
     @State private var image: UIImage?
 
+    private static let cache: URLCache = {
+        URLCache(memoryCapacity: 50*1024*1024, diskCapacity: 200*1024*1024)
+    }()
+
     var body: some View {
         Group {
             if let img = image {
@@ -21,10 +25,17 @@ struct PaicarRemoteImage: View {
 
     private func load() {
         guard image == nil, let url = url else { return }
-        URLSession.shared.dataTask(with: url) { data, _, _ in
-            if let data = data, let img = UIImage(data: data) {
-                DispatchQueue.main.async {
-                    self.image = img
+        if let cached = Self.cache.cachedResponse(for: URLRequest(url: url)),
+           let img = UIImage(data: cached.data) {
+            self.image = img
+            return
+        }
+        var req = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 10)
+        URLSession.shared.dataTask(with: req) { data, resp, _ in
+            if let data = data, let resp = resp {
+                Self.cache.storeCachedResponse(CachedURLResponse(response: resp, data: data), for: req)
+                if let img = UIImage(data: data) {
+                    DispatchQueue.main.async { self.image = img }
                 }
             }
         }.resume()
