@@ -29,13 +29,8 @@ struct PaicarQuickEditView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 抬头：两行（标题 + 括号副标题），扣除左右占位符后居中
-            HStack(spacing: 0) {
-                Button {
-                    presentationMode.wrappedValue.dismiss()
-                } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold)).foregroundColor(.blue).frame(width: 44, height: 44).contentShape(Rectangle())
-                }
+            // 抬头：标题+括号副标题两行，屏幕正中心绝对居中（左右按钮叠加，不参与占位）
+            ZStack {
                 VStack(spacing: 1) {
                     Text("申请配置")
                         .font(.system(size: 18, weight: .bold))
@@ -44,15 +39,22 @@ struct PaicarQuickEditView: View {
                         .font(.system(size: 11))
                         .foregroundColor(hintColor)
                 }
-                .frame(maxWidth: .infinity, alignment: .center)
-                Button("添加") { addRow() }
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(blue)
-                    .padding(.trailing, 12)
-                Button("保存") { save() }
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(blue)
-                    .padding(.trailing, 16)
+                HStack(spacing: 0) {
+                    Button {
+                        presentationMode.wrappedValue.dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold)).foregroundColor(.blue).frame(width: 44, height: 44).contentShape(Rectangle())
+                    }
+                    Spacer()
+                    Button("添加") { addRow() }
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(blue)
+                        .padding(.trailing, 12)
+                    Button("保存") { save() }
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(blue)
+                        .padding(.trailing, 16)
+                }
             }
             .frame(height: 56)
             .background(pageBg)
