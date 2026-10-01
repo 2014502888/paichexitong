@@ -115,10 +115,7 @@ struct WaiwangView: View {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                TextEditor(text: $engine.inputText)
-                    .font(.system(size: 20, design: .default))
-                    .padding(8)
-                    .disabled(engine.isQuerying)
+                UndoDisabledTextView(text: $engine.inputText, isEditable: !engine.isQuerying)
             }
             .frame(height: 250)
 
