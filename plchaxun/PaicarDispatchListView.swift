@@ -188,11 +188,11 @@ struct PaicarDispatchListView: View {
         .background(
             ZStack {
                 NavigationLink(
-                    destination: PaicarApplyDetailView(orderId: pushApplyId ?? "").paicarAuthGuard(),
+                    destination: PaicarApplyDetailView(orderId: pushApplyId ?? ""),
                     isActive: Binding(get: { pushApplyId != nil }, set: { if !$0 { pushApplyId = nil } })
                 ) { EmptyView() }
                 NavigationLink(
-                    destination: PaicarDetailView(orderId: pushDispatchId ?? "").paicarAuthGuard(),
+                    destination: PaicarDetailView(orderId: pushDispatchId ?? ""),
                     isActive: Binding(get: { pushDispatchId != nil }, set: { if !$0 { pushDispatchId = nil } })
                 ) { EmptyView() }
             }

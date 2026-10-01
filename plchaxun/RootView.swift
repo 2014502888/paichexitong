@@ -20,7 +20,7 @@ struct RootView: View {
                             .padding(.bottom, 12)
 
                         // 派车模块（受控 pop：内部发 paicarBackToRoot 通知可退出）
-                        NavigationLink(destination: PaicarModuleView().paicarAuthGuard(), isActive: $showPaicar) {
+                        NavigationLink(destination: PaicarModuleView(), isActive: $showPaicar) {
                             Text("寄递派车")
                                 .font(.headline)
                                 .foregroundColor(.white)

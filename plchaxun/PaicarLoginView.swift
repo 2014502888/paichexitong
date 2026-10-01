@@ -14,7 +14,6 @@ enum PaicarNavTarget: Equatable {
 
 struct PaicarModuleView: View {
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.presentationMode) private var presentationMode
     @State private var navTarget = PaicarNavTarget.none
     @State private var navPostId = ""
     @State private var navOrderId = ""
@@ -125,7 +124,6 @@ struct PaicarModuleView: View {
                 PaicarProfileHolder.profile = nil
                 PaicarApi.justLoggedOut = false
                 PaicarApi.silentAuthExpired = false
-                PaicarAuthDialogState.isShowing = false
                 autoLogging = false
                 loggedIn = true
             } catch {
@@ -144,7 +142,6 @@ struct PaicarModuleView: View {
 }
 
 extension Notification.Name {
-    static let paicarAuthExpired = Notification.Name("paicarAuthExpired")
     static let paicarLoginOK = Notification.Name("paicarLoginOK")
 }
 
@@ -152,7 +149,6 @@ extension Notification.Name {
 
 struct PaicarLoginView: View {
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.presentationMode) private var presentationMode
     @State private var userNo = ""
     @State private var pwd = ""
     @State private var loading = false
@@ -163,7 +159,6 @@ struct PaicarLoginView: View {
     private var pageBg: Color { isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : .white }
     private var inputBg: Color { isDark ? Color(red: 0.17, green: 0.17, blue: 0.17) : .white }
     private var inputBorder: Color { isDark ? Color(white: 0.33) : Color(white: 0.8) }
-    private var hintColor: Color { isDark ? Color(white: 0.67) : Color(white: 0.53) }
     private var blue: Color { Color(red: 0.08, green: 0.28, blue: 0.75) }
 
     var body: some View {
@@ -171,7 +166,8 @@ struct PaicarLoginView: View {
             // 顶栏：返回键 + 居中"寄递派车"（扣除占位）
             HStack(spacing: 0) {
                 Button {
-                    presentationMode.wrappedValue.dismiss()
+                    // 登录页不是独立 push 的页面，dismiss 无效；直接退出派车模块（与未登录右缘左滑一致）
+                    NotificationCenter.default.post(name: .paicarBackToRoot, object: nil)
                 } label: {
                     Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold)).foregroundColor(.blue).frame(width: 44, height: 44).contentShape(Rectangle())
                 }
@@ -280,7 +276,6 @@ struct PaicarLoginView: View {
                 loading = false
                 PaicarApi.justLoggedOut = false
                 PaicarApi.silentAuthExpired = false
-                PaicarAuthDialogState.isShowing = false
                 NotificationCenter.default.post(name: .paicarLoginOK, object: nil)
             } catch {
                 loading = false
@@ -414,58 +409,7 @@ struct PaicarToast: View {
     }
 }
 
-// MARK: - 被顶号弹窗（对应 PaicarApp.showAuthExpiredDialog）
-
-struct PaicarAuthExpiredHandler: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
-    @State private var show = false
-
-    func body(content: Content) -> some View {
-        content
-            .onReceive(NotificationCenter.default.publisher(for: .paicarAuthExpired)) { _ in
-                if PaicarAuthDialogState.isShowing { return }
-                if PaicarApi.silentAuthExpired { return }
-                PaicarAuthDialogState.isShowing = true
-                PaicarApi.silentAuthExpired = true
-                show = true
-            }
-            .alert("账号已在别处登入", isPresented: $show) {
-                Button("取消", role: .cancel) {
-                    PaicarAuthDialogState.isShowing = false
-                    PaicarSession.clear()
-                    PaicarProfileHolder.profile = nil
-                    NotificationCenter.default.post(name: .paicarForceLogin, object: nil)
-                }
-                Button("重新登录") {
-                    let u = PaicarSession.savedUserNo
-                    let p = PaicarSession.savedUserPwd
-                    if !u.isEmpty && !p.isEmpty {
-                        Task {
-                            do {
-                                let info = try await PaicarApi.login(userNo: u, plainPassword: p)
-                                PaicarSession.save(token: info.token, userId: info.userId, userNo: u, userPwd: p)
-                                PaicarProfileHolder.profile = nil
-                                PaicarAuthDialogState.isShowing = false
-                                PaicarApi.silentAuthExpired = false
-                                show = false
-                                NotificationCenter.default.post(name: .paicarReloadAfterLogin, object: nil)
-                            } catch {
-                                PaicarAuthDialogState.isShowing = false
-                                PaicarSession.clear()
-                                PaicarApi.silentAuthExpired = false
-                                NotificationCenter.default.post(name: .paicarForceLogin, object: nil)
-                            }
-                        }
-                    } else {
-                        PaicarSession.clear()
-                        NotificationCenter.default.post(name: .paicarForceLogin, object: nil)
-                    }
-                }
-            } message: {
-                Text("是否重新登录？")
-            }
-    }
-}
+// MARK: - 被顶号弹窗（对齐安卓 PaicarApp.showAuthExpiredDialog）
 
 /// 全局登录失效弹窗（对齐安卓 PaicarApp.showAuthExpiredDialog）
 /// 从最顶层 UIViewController 弹 UIAlertController，不依赖 SwiftUI 根 alert 的层级呈现。
@@ -514,19 +458,9 @@ final class AuthDialog {
     }
 }
 
-class PaicarAuthDialogState {
-    static var isShowing = false
-}
-
 extension Notification.Name {
     static let paicarForceLogin = Notification.Name("paicarForceLogin")
     static let paicarReloadAfterLogin = Notification.Name("paicarReloadAfterLogin")
-}
-
-extension View {
-    func paicarAuthGuard() -> some View {
-        modifier(PaicarAuthExpiredHandler())
-    }
 }
 
 // 登录后不挂右缘左滑dismiss手势(由PaicarHomeView自己处理);未登录时才挂
