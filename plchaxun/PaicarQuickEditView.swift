@@ -28,17 +28,22 @@ struct PaicarQuickEditView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 抬头居中：扣除左右占位符（左返回键 44 固定 + 右侧按钮按内容宽），标题在剩余空间居中
+            // 抬头：两行（标题 + 括号副标题），扣除左右占位符后居中
             HStack(spacing: 0) {
                 Button {
                     presentationMode.wrappedValue.dismiss()
                 } label: {
                     Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold)).foregroundColor(.blue).frame(width: 44, height: 44).contentShape(Rectangle())
                 }
-                Text("申请配置")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(fg)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                VStack(spacing: 1) {
+                    Text("申请配置")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(fg)
+                    Text("（按配置批量创建派车单设置）")
+                        .font(.system(size: 11))
+                        .foregroundColor(hintColor)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
                 Button("添加") { addRow() }
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(blue)
@@ -48,19 +53,11 @@ struct PaicarQuickEditView: View {
                     .foregroundColor(blue)
                     .padding(.trailing, 16)
             }
-            .frame(height: 44)
+            .frame(height: 56)
             .background(pageBg)
 
             ScrollView {
                 VStack(spacing: 0) {
-                    Text("按配置批量创建派车单设置")
-                        .font(.system(size: 12))
-                        .foregroundColor(hintColor)
-                        .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 12)
-                        .padding(.bottom, 6)
-
                     if loading {
                         ProgressView().padding(.top, 120)
                     } else {
