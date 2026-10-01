@@ -141,15 +141,15 @@ struct PaicarDetailView: View {
                 .foregroundColor(PaicarStyle.statusColor(o.statusCode))
             if let a = o.applyList.first(where: { !$0.createName.isEmpty }) {
                 Text("申请派车：\(a.createName) \(a.createTime)")
-                    .font(.system(size: 12)).foregroundColor(fg)
+                    .font(.system(size: 12)).foregroundColor(fg).monospacedDigit()
             }
             if !o.createName.isEmpty {
                 Text("创建派车：\(o.createName) \(o.createTime)")
-                    .font(.system(size: 12)).foregroundColor(fg)
+                    .font(.system(size: 12)).foregroundColor(fg).monospacedDigit()
             }
             if !o.receiveName.isEmpty {
                 Text("分配车辆：\(o.receiveName) \(o.receiveTime)")
-                    .font(.system(size: 12)).foregroundColor(fg)
+                    .font(.system(size: 12)).foregroundColor(fg).monospacedDigit()
             }
         }
         .frame(maxWidth: .infinity)

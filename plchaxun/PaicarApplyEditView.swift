@@ -263,19 +263,28 @@ struct PaicarApplyEditView: View {
         }
     }
 
+    /// 兼容服务端整数/字符串/"null" 字段解析（服务端 id/件数等常为整数，as? String 会解析失败导致回填为空）
+    private func s(_ j: [String: Any], _ key: String) -> String {
+        let v = j[key]
+        let t = (v as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? (v as? NSNumber)?.stringValue
+            ?? ""
+        return t.lowercased() == "null" ? "" : t
+    }
+
     private func fill(_ o: [String: Any]) {
-        arrivalTime = (o["arrivalTime"] as? String) ?? ""
-        liaisonId = (o["liaison_id"] as? String) ?? ""
-        routeId = (o["route_id"] as? String) ?? ""
-        carSpecs = (o["carSpecs"] as? String) ?? ""
+        arrivalTime = s(o, "arrivalTime")
+        liaisonId = s(o, "liaison_id")
+        routeId = s(o, "route_id")
+        carSpecs = s(o, "carSpecs")
+        remarks = s(o, "remarks")     // 备注回填（之前遗漏，从未回填过）
         if let customers = o["customer"] as? [Any] {
             for e in customers {
                 guard let c = e as? [String: Any] else { continue }
-                let cid = (c["customer_id"] as? String) ?? ""
+                let cid = s(c, "customer_id")
                 if !cid.isEmpty {
                     selectedCustomerId = cid
-                    let n = (c["number"] as? String) ?? ""
-                    numText = n
+                    numText = s(c, "number")
                 }
             }
         }

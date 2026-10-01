@@ -580,13 +580,13 @@ struct PaicarDispatchListView: View {
                         .font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                 }
                 ForEach(Array(creators.enumerated()), id: \.offset) { _, c in
-                    Text(c).font(.system(size: 15, weight: .bold)).foregroundColor(.white)
+                    Text(c).font(.system(size: 15, weight: .bold)).foregroundColor(.white).monospacedDigit()
                 }
                 if !o.createName.isEmpty {
-                    Text("\(o.createName) \(o.createTime) 创建派车").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
+                    Text("\(o.createName) \(o.createTime) 创建派车").font(.system(size: 15, weight: .bold)).foregroundColor(.white).monospacedDigit()
                 }
                 if !o.receiveName.isEmpty {
-                    Text("\(o.receiveName) \(o.receiveTime) 分配车辆").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
+                    Text("\(o.receiveName) \(o.receiveTime) 分配车辆").font(.system(size: 15, weight: .bold)).foregroundColor(.white).monospacedDigit()
                 }
                 if showFinished {
                     Text("车辆 \(o.specs) · 装载 \(o.loadingNum) 件 · 装载率 \(PaicarStyle.volRate(o))%")

@@ -15,6 +15,7 @@ struct PaicarQuickEditView: View {
     @State private var loading = true
     @State private var saved = false
     @State private var toastMsg: String?
+    @State private var expanded: [Bool] = []
 
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
@@ -27,25 +28,28 @@ struct PaicarQuickEditView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                Button {
-                    presentationMode.wrappedValue.dismiss()
-                } label: {
-                    Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold)).foregroundColor(.blue).frame(width: 44, height: 44).contentShape(Rectangle())
-                }
+            ZStack {
                 Text("申请配置")
                     .font(.system(size: 18, weight: .bold))
-                    .frame(maxWidth: .infinity)
-                Button("添加") { addRow() }
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(blue)
-                    .padding(.trailing, 12)
-                Button("保存") { save() }
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(blue)
-                    .padding(.trailing, 16)
+                    .foregroundColor(fg)
+                HStack(spacing: 0) {
+                    Button {
+                        presentationMode.wrappedValue.dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold)).foregroundColor(.blue).frame(width: 44, height: 44).contentShape(Rectangle())
+                    }
+                    Spacer()
+                    Button("添加") { addRow() }
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(blue)
+                        .padding(.trailing, 12)
+                    Button("保存") { save() }
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(blue)
+                        .padding(.trailing, 16)
+                }
             }
-            .foregroundColor(fg)
+            .frame(height: 44)
             .background(pageBg)
 
             ScrollView {
@@ -96,6 +100,8 @@ struct PaicarQuickEditView: View {
 
     private func rowCard(_ r: [String: String], index: Int) -> some View {
         let enabled = r["enabled"] == "1"
+        let isExpanded = expanded.indices.contains(index) ? expanded[index] : true
+        let showBody = enabled && isExpanded
         return VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Button {
@@ -108,7 +114,25 @@ struct PaicarQuickEditView: View {
                 Text("第 \(index + 1) 部")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(fg)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if !showBody {
+                    // 折叠时：中间空白显示邮路，方便识别是哪个配置
+                    Text(r["routeName"] ?? "")
+                        .font(.system(size: 12))
+                        .foregroundColor(hintColor)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Spacer()
+                }
+                Button {
+                    toggleExpand(index)
+                } label: {
+                    Image(systemName: showBody ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(hintColor)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
                 Button {
                     confirmDelete(index)
                 } label: {
@@ -118,7 +142,7 @@ struct PaicarQuickEditView: View {
                 }
             }
 
-            if enabled {
+            if showBody {
                 pickRow("客户", value: r["customerName"] ?? "", hint: "选择客户") {
                     showPicker((index, "customer"))
                 }
@@ -188,6 +212,15 @@ struct PaicarQuickEditView: View {
 
     private func toggleEnabled(_ idx: Int) {
         rows[idx]["enabled"] = rows[idx]["enabled"] == "1" ? "0" : "1"
+        // 勾上启用时自动展开，避免刚启用的配置看不到内容
+        if rows[idx]["enabled"] == "1", expanded.indices.contains(idx) {
+            expanded[idx] = true
+        }
+    }
+
+    private func toggleExpand(_ idx: Int) {
+        guard expanded.indices.contains(idx) else { return }
+        expanded[idx].toggle()
     }
 
     private func confirmDelete(_ idx: Int) {
@@ -196,6 +229,7 @@ struct PaicarQuickEditView: View {
         alert.addAction(UIAlertAction(title: "取消", style: .cancel))
         alert.addAction(UIAlertAction(title: "删除", style: .destructive) { _ in
             rows.remove(at: idx)
+            if expanded.indices.contains(idx) { expanded.remove(at: idx) }
         })
         present(alert)
     }
@@ -207,6 +241,7 @@ struct PaicarQuickEditView: View {
             "hour": "", "liaisonId": "", "liaisonName": "",
             "routeId": "", "routeName": "", "shipment": "0",
         ])
+        expanded.append(true)
     }
 
     private func showPicker(_ target: (idx: Int, kind: String)) {
@@ -292,6 +327,7 @@ struct PaicarQuickEditView: View {
                     }
                 }
                 rows = loaded
+                expanded = loaded.map { $0["enabled"] == "1" }
             } catch PaicarError.authExpired {
                 loading = false
             } catch {
