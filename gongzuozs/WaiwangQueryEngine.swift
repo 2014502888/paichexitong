@@ -19,6 +19,9 @@ final class WaiwangQueryEngine: ObservableObject {
     @Published var renderToken = 0
 
     private var currentTask: Task<Void, Never>?
+    // 代际标记：每次 start 自增，旧任务（被 cancel 或已被新任务取代）据此识别自己已失效，
+    // 不再更新 UI / 不再碰后台任务，彻底杜绝"停止后再查询时旧任务结果覆盖新任务"的竞态
+    private var generation = 0
     private let ticker = Ticker()
 
     deinit {
@@ -101,8 +104,10 @@ final class WaiwangQueryEngine: ObservableObject {
         results = []
         isQuerying = true
 
+        generation += 1
+        let gen = generation
         currentTask = Task { [weak self] in
-            await self?.run(nums: nums, start: startDate)
+            await self?.run(nums: nums, start: startDate, generation: gen)
         }
         ticker.start { [weak self] in
             self?.elapsedSeconds = Date().timeIntervalSince(startDate)
@@ -110,6 +115,7 @@ final class WaiwangQueryEngine: ObservableObject {
     }
 
     func cancel() {
+        generation += 1   // 使当前代任务立即失效：其 defer 与收集循环都不再更新状态
         currentTask?.cancel()
         currentTask = nil
         ticker.stop()
@@ -122,15 +128,15 @@ final class WaiwangQueryEngine: ObservableObject {
     }
 
     @MainActor
-    private func run(nums: [String], start: Date) async {
+    private func run(nums: [String], start: Date, generation: Int) async {
         defer {
             // 结束后台任务
             if backgroundTaskID != .invalid {
                 UIApplication.shared.endBackgroundTask(backgroundTaskID)
                 backgroundTaskID = .invalid
             }
-            // 只有当前任务还在运行时才更新状态（防止旧任务覆盖新任务）
-            if !Task.isCancelled {
+            // 只有当前任务还在运行且仍是最新一代时才更新状态（防止旧任务覆盖新任务）
+            if !Task.isCancelled && generation == self.generation {
                 isQuerying = false
                 ticker.stop()
                 elapsedSeconds = Date().timeIntervalSince(start)
@@ -259,6 +265,8 @@ final class WaiwangQueryEngine: ObservableObject {
 
             // 收集结果，更新 UI
             for await (index, result) in group {
+                // 任务已被取消或已被新任务取代时，不再更新 UI 状态，避免旧任务结果覆盖新任务
+                guard generation == self.generation else { break }
                 collected[index] = result
                 completed = collected.count
                 let ordered = (0..<nums.count).compactMap { collected[$0] }
