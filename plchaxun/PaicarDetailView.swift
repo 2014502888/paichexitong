@@ -564,6 +564,8 @@ struct PaicarApplyDetailView: View {
             Task {
                 do {
                     _ = try await PaicarApi.applyOrderAction(id: orderId, action: "delete")
+                    // 通知列表页数据已变：返回派车单界面时自动重载
+                    PaicarFlags.dispatchDirty = true
                     presentationMode.wrappedValue.dismiss()
                 } catch PaicarError.authExpired {
                     acting = false

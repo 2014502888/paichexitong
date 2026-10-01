@@ -327,6 +327,8 @@ struct PaicarApplyEditView: View {
                 saving = false
                 if r.ok {
                     toastMsg = "保存成功"
+                    // 通知列表页数据已变：返回派车单界面时自动重载
+                    PaicarFlags.dispatchDirty = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                         presentationMode.wrappedValue.dismiss()
                     }
