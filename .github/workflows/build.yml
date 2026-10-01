@@ -30,8 +30,8 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild build \
-            -project plchaxun.xcodeproj \
-            -scheme plchaxun \
+            -project gongzuozs.xcodeproj \
+            -scheme gongzuozs \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build/dd \
@@ -60,11 +60,11 @@ jobs:
           set -e
           echo "=== DerivedData Products ==="
           find build/dd/Build/Products -maxdepth 3 -type d || true
-          APP_PATH="build/dd/Build/Products/Release-iphoneos/plchaxun.app"
+          APP_PATH="build/dd/Build/Products/Release-iphoneos/gongzuozs.app"
           echo "Looking for: $APP_PATH"
           if [ ! -d "$APP_PATH" ]; then
             echo "APP not found, searching..."
-            APP_PATH=$(find build/dd/Build/Products -name "plchaxun.app" -type d | head -1)
+            APP_PATH=$(find build/dd/Build/Products -name "gongzuozs.app" -type d | head -1)
             echo "Found at: $APP_PATH"
           fi
           ls -la "$APP_PATH"
@@ -72,14 +72,14 @@ jobs:
           mkdir -p build/ipabuild/Payload
           cp -R "$APP_PATH" build/ipabuild/Payload/
           cd build/ipabuild
-          zip -qr ../../plchaxun.ipa Payload
+          zip -qr ../../gongzuozs.ipa Payload
           cd ../..
-          ls -la plchaxun.ipa
+          ls -la gongzuozs.ipa
 
       - name: Upload ipa artifact
         uses: actions/upload-artifact@v4
         with:
-          name: plchaxun-ipa
-          path: plchaxun.ipa
+          name: gongzuozs-ipa
+          path: gongzuozs.ipa
           if-no-files-found: error
           retention-days: 30

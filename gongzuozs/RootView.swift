@@ -31,7 +31,7 @@ struct RootView: View {
                         }
 
                         entryButton("外网查询", color: green) { WaiwangView() }
-                        entryButton("内网查询", color: yellow) { InternalView() }
+                        entryButton("内网查询", color: yellow) { NeiwangView() }
                         entryButton("网址助手", color: Color(red: 1.0, green: 0.43, blue: 0.25)) { WangzhizhushouView() }
                         entryButton("远程开机", color: purple) { YuanchengkaijiView() }
 

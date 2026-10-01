@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-enum InternalHarImporter {
+enum NeiwangHarImporter {
 
     static func importHar(from url: URL) {
         do {
@@ -56,7 +56,7 @@ enum InternalHarImporter {
                 return
             }
 
-            InternalHarConfig.shared.save(sessionId: sessionId, userAgent: userAgent)
+            NeiwangHarConfig.shared.save(sessionId: sessionId, userAgent: userAgent)
             // 🆕 清除旧 token 缓存，新 sessionId 立即生效，无需重启 App
             Neiwang.shared.resetToken()
             showToast("导入成功，立即生效")

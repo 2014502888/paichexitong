@@ -15,13 +15,13 @@ struct Gongzuozhushou: App {
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
-        InternalHarConfig.shared.load()
+        NeiwangHarConfig.shared.load()
         PaicarSession.load()
         return true
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        InternalHarImporter.importHar(from: url)
+        NeiwangHarImporter.importHar(from: url)
         return true
     }
 }

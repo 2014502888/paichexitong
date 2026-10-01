@@ -1,18 +1,18 @@
-name: plchaxun
+name: gongzuozs
 options:
   bundleIdPrefix: com.mailtracker
   deploymentTarget:
     iOS: "15.0"
 targets:
-  plchaxun:
+  gongzuozs:
     type: application
     platform: iOS
     sources:
-      - path: plchaxun
+      - path: gongzuozs
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mailtracker.unified
         MARKETING_VERSION: 1.0
         CURRENT_PROJECT_VERSION: 1
-        INFOPLIST_FILE: plchaxun/Info.plist
+        INFOPLIST_FILE: gongzuozs/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

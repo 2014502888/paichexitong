@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - XLSX 导出（手写 OpenXML + ZIP store 模式）
-enum InternalXLSXExporter {
+enum NeiwangXLSXExporter {
 
     static let columns: [String] = [
         "邮件单号",          // 1
@@ -38,7 +38,7 @@ enum InternalXLSXExporter {
             ("xl/worksheets/sheet1.xml", Data(sheetXML(rows: allRows).utf8)),
             ("xl/styles.xml", Data(stylesXML.utf8))
         ]
-        return InternalSimpleZip.archive(files: files)
+        return NeiwangSimpleZip.archive(files: files)
     }
 
     static func columnLetter(_ index: Int) -> String {
@@ -153,7 +153,7 @@ enum InternalXLSXExporter {
 }
 
 // MARK: - 手写 ZIP 打包器（store 模式，无压缩）
-struct InternalSimpleZip {
+struct NeiwangSimpleZip {
 
     static func archive(files: [(name: String, data: Data)]) -> Data {
         var output = Data()

@@ -1,7 +1,7 @@
 import Foundation
 
-class InternalAreaUtil {
-    static let shared = InternalAreaUtil()
+class NeiwangAreaUtil {
+    static let shared = NeiwangAreaUtil()
 
     private var cityToProvince: [String: String] = [:]
 
@@ -40,9 +40,9 @@ class InternalAreaUtil {
                     }
                 }
             }
-            print("InternalAreaUtil loaded \(cityToProvince.count) cities")
+            print("NeiwangAreaUtil loaded \(cityToProvince.count) cities")
         } catch {
-            print("InternalAreaUtil error: \(error)")
+            print("NeiwangAreaUtil error: \(error)")
         }
     }
 

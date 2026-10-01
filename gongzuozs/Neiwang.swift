@@ -32,7 +32,7 @@ class Neiwang: NSObject, URLSessionDelegate {
         request.httpMethod = "POST"
         request.setValue("application/json;charset=UTF-8", forHTTPHeaderField: "Content-Type")
         applyHeaders(to: &request)
-        request.setValue("sessionId=\(InternalHarConfig.shared.sessionId); xmToken=\(t)", forHTTPHeaderField: "Cookie")
+        request.setValue("sessionId=\(NeiwangHarConfig.shared.sessionId); xmToken=\(t)", forHTTPHeaderField: "Cookie")
         request.httpBody = "{\"mailNo\":\"\(mailNo)\"}".data(using: .utf8)
 
         let (data, response) = try await session.data(for: request)
@@ -89,7 +89,7 @@ class Neiwang: NSObject, URLSessionDelegate {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         applyHeaders(to: &request)
-        request.setValue("sessionId=\(InternalHarConfig.shared.sessionId)", forHTTPHeaderField: "Cookie")
+        request.setValue("sessionId=\(NeiwangHarConfig.shared.sessionId)", forHTTPHeaderField: "Cookie")
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -110,7 +110,7 @@ class Neiwang: NSObject, URLSessionDelegate {
     }
 
     private func applyHeaders(to request: inout URLRequest) {
-        let cfg = InternalHarConfig.shared
+        let cfg = NeiwangHarConfig.shared
         if !cfg.userAgent.isEmpty {
             request.setValue(cfg.userAgent, forHTTPHeaderField: "User-Agent")
         }

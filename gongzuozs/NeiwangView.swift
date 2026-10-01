@@ -2,18 +2,18 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-class ImportDelegate: NSObject, UIDocumentPickerDelegate {
-    static let shared = ImportDelegate()
+class NeiwangImportDelegate: NSObject, UIDocumentPickerDelegate {
+    static let shared = NeiwangImportDelegate()
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
         guard let url = urls.first else { return }
-        InternalHarImporter.importHar(from: url)
+        NeiwangHarImporter.importHar(from: url)
     }
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
         controller.dismiss(animated: true)
     }
 }
 
-struct InternalTraceNode: Identifiable {
+struct NeiwangTraceNode: Identifiable {
     let id = UUID()
     let time: String
     let title: String
@@ -24,10 +24,10 @@ struct InternalTraceNode: Identifiable {
     let orgCode: String
 }
 
-struct InternalMailResult: Identifiable {
+struct NeiwangMailResult: Identifiable {
     let id = UUID()
     let mailNum: String
-    var traces: [InternalTraceNode]
+    var traces: [NeiwangTraceNode]
     var weight: String
     var fee: String
     var destProvince: String
@@ -36,12 +36,12 @@ struct InternalMailResult: Identifiable {
     var isDuplicate: Bool = false
 }
 
-enum InternalResultTab: String, CaseIterable, Identifiable {
+enum NeiwangResultTab: String, CaseIterable, Identifiable {
     case success, failed, duplicate
     var id: String { rawValue }
 }
 
-enum InternalTrackParsing {
+enum NeiwangTrackParsing {
     static func isValidMailNum(_ digits: String) -> Bool {
         guard digits.count == 13 else { return false }
         guard let first = digits.first else { return false }
@@ -75,7 +75,7 @@ enum InternalTrackParsing {
     }
 }
 
-final class InternalAsyncSemaphore {
+final class NeiwangAsyncSemaphore {
     private var count: Int
     private var waiters: [CheckedContinuation<Void, Never>] = []
     private let lock = NSLock()
@@ -94,7 +94,7 @@ final class InternalAsyncSemaphore {
     }
 }
 
-private final class InternalTicker {
+private final class NeiwangTicker {
     private var task: Task<Void, Never>?
     func start(interval: TimeInterval = 0.1, _ block: @escaping () -> Void) {
         stop()
@@ -109,36 +109,36 @@ private final class InternalTicker {
     func stop() { task?.cancel(); task = nil }
 }
 
-final class InternalQueryEngine: ObservableObject {
+final class NeiwangQueryEngine: ObservableObject {
     @Published var inputText = ""
     @Published var isQuerying = false
     @Published var total = 0
     @Published var completed = 0
     @Published var elapsedSeconds: Double = 0
-    @Published var results: [InternalMailResult] = []
+    @Published var results: [NeiwangMailResult] = []
     @Published var concurrency = 2
     // 🆕 服务端次数限制标记：触发后停止剩余查询，不再浪费请求
     @Published var rateLimited = false
     // 🆕 登录会话失效标记：HAR 过期（工号退出登录），触发后停止查询并弹窗提示
     @Published var sessionExpired = false
     private var currentTask: Task<Void, Never>?
-    private let ticker = InternalTicker()
+    private let ticker = NeiwangTicker()
 
     deinit {
         currentTask?.cancel()
         ticker.stop()
     }
 
-    var successResults: [InternalMailResult] { results.filter { $0.error == nil && !$0.isDuplicate } }
-    var failedResults: [InternalMailResult] { results.filter { $0.error != nil } }
-    var duplicateResults: [InternalMailResult] { results.filter { $0.isDuplicate } }
+    var successResults: [NeiwangMailResult] { results.filter { $0.error == nil && !$0.isDuplicate } }
+    var failedResults: [NeiwangMailResult] { results.filter { $0.error != nil } }
+    var duplicateResults: [NeiwangMailResult] { results.filter { $0.isDuplicate } }
 
     func start() {
         guard !isQuerying else { return }
         // 🆕 每次查询前清除 token 缓存：导入新 HAR 后天然立即生效（不再依赖 resetToken 调用时机），
         // 同时避免复用过期 token；批次内仍由 tokenTask 合并为 1 个 xmGetToken 请求，不额外耗请求
         Neiwang.shared.resetToken()
-        let nums = InternalTrackParsing.parseInput(inputText)
+        let nums = NeiwangTrackParsing.parseInput(inputText)
         guard !nums.isEmpty else { return }
         let startDate = Date()
         total = nums.count; completed = 0; results = []; isQuerying = true
@@ -158,26 +158,26 @@ final class InternalQueryEngine: ObservableObject {
         defer {
             if !Task.isCancelled { isQuerying = false; ticker.stop(); elapsedSeconds = Date().timeIntervalSince(start) }
         }
-        let semaphore = InternalAsyncSemaphore(value: concurrency)
-        var collected: [Int: InternalMailResult] = [:]
-        await withTaskGroup(of: (Int, InternalMailResult).self) { group in
+        let semaphore = NeiwangAsyncSemaphore(value: concurrency)
+        var collected: [Int: NeiwangMailResult] = [:]
+        await withTaskGroup(of: (Int, NeiwangMailResult).self) { group in
             for (index, num) in nums.enumerated() {
                 if Task.isCancelled { break }
                 group.addTask {
                     await semaphore.wait()
                     if Task.isCancelled {
                         await semaphore.signal()
-                        return (index, InternalMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "已取消"))
+                        return (index, NeiwangMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "已取消"))
                     }
                     // 🆕 已触发服务端次数限制：剩余单号不再发请求，直接标记停止
                     if self.rateLimited {
                         await semaphore.signal()
-                        return (index, InternalMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "已停止（服务端次数限制）"))
+                        return (index, NeiwangMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "已停止（服务端次数限制）"))
                     }
                     // 🆕 登录会话已失效：剩余单号不再发请求
                     if self.sessionExpired {
                         await semaphore.signal()
-                        return (index, InternalMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "已停止（会话失效）"))
+                        return (index, NeiwangMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "已停止（会话失效）"))
                     }
                     do {
                         let json = try await Neiwang.shared.query(mailNo: num)
@@ -191,7 +191,7 @@ final class InternalQueryEngine: ObservableObject {
                         // 🆕 会话失效：标记并停止剩余查询，弹窗提示重新导入 HAR
                         await semaphore.signal()
                         self.sessionExpired = true
-                        return (index, InternalMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "会话失效：\(e.message)"))
+                        return (index, NeiwangMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "会话失效：\(e.message)"))
                     } catch {
                         do {
                             let json = try await Neiwang.shared.query(mailNo: num)
@@ -203,10 +203,10 @@ final class InternalQueryEngine: ObservableObject {
                         } catch let e2 as SessionExpiredError {
                             await semaphore.signal()
                             self.sessionExpired = true
-                            return (index, InternalMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "会话失效：\(e2.message)"))
+                            return (index, NeiwangMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "会话失效：\(e2.message)"))
                         } catch {
                             await semaphore.signal()
-                            return (index, InternalMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "查询失败"))
+                            return (index, NeiwangMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "查询失败"))
                         }
                     }
                 }
@@ -225,7 +225,7 @@ final class InternalQueryEngine: ObservableObject {
         }
     }
 
-    private func parseResult(_ mailNo: String, json: [String: Any]) -> InternalMailResult {
+    private func parseResult(_ mailNo: String, json: [String: Any]) -> NeiwangMailResult {
         var list: [[String: Any]]?
         if let data = json["data"] as? [String: Any], let l = data["data"] as? [[String: Any]] { list = l }
         else if let l = json["data"] as? [[String: Any]] { list = l }
@@ -239,9 +239,9 @@ final class InternalQueryEngine: ObservableObject {
                 detail = String(raw.prefix(200))
             }
             let label = detail.isEmpty ? "" : "  [服务端] \(detail)"
-            return InternalMailResult(mailNum: mailNo, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "无物流信息\(label)")
+            return NeiwangMailResult(mailNum: mailNo, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "无物流信息\(label)")
         }
-        var items: [InternalTraceNode] = []; var weight = ""; var fee = ""
+        var items: [NeiwangTraceNode] = []; var weight = ""; var fee = ""
         for item in l { flatten(item, into: &items, weight: &weight, fee: &fee) }
         items.sort { $0.time > $1.time }
         var destCity = ""
@@ -254,11 +254,11 @@ final class InternalQueryEngine: ObservableObject {
             if let end = s.firstIndex(of: " ") { s = String(s[..<end]) }
             destCity = s; break
         }
-        let destProvince = InternalAreaUtil.shared.getProvinceByCity(destCity)
-        return InternalMailResult(mailNum: mailNo, traces: items, weight: weight, fee: fee, destProvince: destProvince, destCity: destCity, error: nil)
+        let destProvince = NeiwangAreaUtil.shared.getProvinceByCity(destCity)
+        return NeiwangMailResult(mailNum: mailNo, traces: items, weight: weight, fee: fee, destProvince: destProvince, destCity: destCity, error: nil)
     }
 
-    private func flatten(_ node: [String: Any], into items: inout [InternalTraceNode], weight: inout String, fee: inout String) {
+    private func flatten(_ node: [String: Any], into items: inout [NeiwangTraceNode], weight: inout String, fee: inout String) {
         let time = node["opTime"] as? String ?? ""
         let title = node["opName"] as? String ?? ""
         var desc = ""
@@ -278,7 +278,7 @@ final class InternalQueryEngine: ObservableObject {
             if let match = s.range(of: #"\d+\.?\d*\s*元"#, options: .regularExpression) { fee = String(s[match]) }
         }
         if !time.isEmpty || !title.isEmpty {
-            items.append(InternalTraceNode(time: time, title: title, desc: desc, province: province, city: city, orgName: orgName, orgCode: orgCode))
+            items.append(NeiwangTraceNode(time: time, title: title, desc: desc, province: province, city: city, orgName: orgName, orgCode: orgCode))
         }
         if let children = node["children"] as? [[String: Any]] {
             for child in children { flatten(child, into: &items, weight: &weight, fee: &fee) }
@@ -286,12 +286,12 @@ final class InternalQueryEngine: ObservableObject {
     }
 }
 
-struct InternalView: View {
+struct NeiwangView: View {
     @Environment(\.presentationMode) var presentationMode
     @State private var keyboardVisible = false
-    @StateObject private var engine = InternalQueryEngine()
-    @State private var selectedTab: InternalResultTab = .success
-    @State private var selectedResult: InternalMailResult?
+    @StateObject private var engine = NeiwangQueryEngine()
+    @State private var selectedTab: NeiwangResultTab = .success
+    @State private var selectedResult: NeiwangMailResult?
     // 🆕 会话失效弹窗
     @State private var showSessionExpiredAlert = false
     @State private var showNoHarAlert = false
@@ -343,7 +343,7 @@ struct InternalView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
-                    picker.delegate = ImportDelegate.shared
+                    picker.delegate = NeiwangImportDelegate.shared
                     picker.allowsMultipleSelection = false
                     UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
                 } label: {
@@ -353,7 +353,7 @@ struct InternalView: View {
                 }
             }
         }
-        .sheet(item: $selectedResult) { r in InternalDetailSheet(result: r) }
+        .sheet(item: $selectedResult) { r in NeiwangDetailSheet(result: r) }
         // 🆕 会话失效：弹窗提示重新导入 HAR
         .onChange(of: engine.sessionExpired) { expired in
             if expired { showSessionExpiredAlert = true }
@@ -389,7 +389,7 @@ struct InternalView: View {
                 } else if engine.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text("单号（每行一个，自动过滤中文）")
                 } else {
-                    let nums = InternalTrackParsing.parseInput(engine.inputText)
+                    let nums = NeiwangTrackParsing.parseInput(engine.inputText)
                     Text("\(nums.count) 个准备查询")
                 }
             }
@@ -426,7 +426,7 @@ struct InternalView: View {
 
                 Button {
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                    if !InternalHarConfig.shared.isConfigured {
+                    if !NeiwangHarConfig.shared.isConfigured {
                         showNoHarAlert = true
                         return
                     }
@@ -483,16 +483,16 @@ struct InternalView: View {
                 .disabled(engine.results.isEmpty)
             }.padding(.horizontal)
             Picker("结果", selection: $selectedTab) {
-                Text("成功 (\(engine.successResults.count))").tag(InternalResultTab.success)
-                Text("失败 (\(engine.failedResults.count))").tag(InternalResultTab.failed)
-                Text("重复 (\(engine.duplicateResults.count))").tag(InternalResultTab.duplicate)
+                Text("成功 (\(engine.successResults.count))").tag(NeiwangResultTab.success)
+                Text("失败 (\(engine.failedResults.count))").tag(NeiwangResultTab.failed)
+                Text("重复 (\(engine.duplicateResults.count))").tag(NeiwangResultTab.duplicate)
             }
             .pickerStyle(.segmented).padding(.horizontal)
         }
         .padding(.bottom, 8)
     }
 
-    private var currentList: [InternalMailResult] {
+    private var currentList: [NeiwangMailResult] {
         switch selectedTab {
         case .success: return engine.successResults
         case .failed: return engine.failedResults
@@ -554,7 +554,7 @@ struct InternalView: View {
         var rows: [[String]] = []
         for r in valid {
             let last = r.traces[0]
-            var acceptTrace: InternalTraceNode? = nil
+            var acceptTrace: NeiwangTraceNode? = nil
             for t in r.traces { if t.title.contains("收寄") { acceptTrace = t; break } }
             if acceptTrace == nil && r.traces.count > 1 { acceptTrace = r.traces[r.traces.count - 2] }
             rows.append([
@@ -564,8 +564,8 @@ struct InternalView: View {
                 acceptTrace?.province ?? "", acceptTrace?.city ?? "", acceptTrace?.orgName ?? ""
             ])
         }
-        let data = InternalXLSXExporter.export(rows: rows)
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(InternalXLSXExporter.defaultFileName() + ".xlsx")
+        let data = NeiwangXLSXExporter.export(rows: rows)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(NeiwangXLSXExporter.defaultFileName() + ".xlsx")
         do {
             try data.write(to: url)
         } catch {
@@ -585,8 +585,8 @@ struct InternalView: View {
     private var formattedElapsed: String { String(format: "%.1f秒", engine.elapsedSeconds) }
 }
 
-struct InternalDetailSheet: View {
-    let result: InternalMailResult
+struct NeiwangDetailSheet: View {
+    let result: NeiwangMailResult
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationView {
