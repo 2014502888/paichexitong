@@ -59,6 +59,10 @@ struct RootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .paicarBackToRoot)) { _ in
             showPaicar = false
+            // 返回主界面自动退出派车账号：清 token 保留账号密码（PaicarSession.clear 只清 token/userId），
+            // 下次进入派车 onAppear 检测到"未登录+有账号密码"自动重登，与完全退出APP重开行为一致
+            PaicarSession.clear()
+            PaicarProfileHolder.profile = nil
         }
     }
 

@@ -21,7 +21,6 @@ struct PaicarModuleView: View {
     @State private var navMode = ""
     @State private var loggedIn = false
     @State private var autoLogging = false
-    private static var didAutoLoginOnce = false
 
     private var isDark: Bool { colorScheme == .dark }
 
@@ -45,13 +44,14 @@ struct PaicarModuleView: View {
             }
         )
         .onAppear {
-            // 对齐安卓:有本地token就直接进主页,不自动重新登录。
-            // token有效就正常用,无效时等实际操作请求返回410再弹框。
-            // 退出登录后(justLoggedOut)停在登录页等手动点。
-            PaicarApi.justLoggedOut = false
+            // 对齐安卓：手动退出后(justLoggedOut)停在登录页等手动点；
+            // 其他情况只要有本地账号密码且未登录就自动重登（返回主界面自动退出/完全退出重开都走这里），
+            // 与"完全退出APP重开"行为一致：被顶号再进派车直接登入，不弹"账号已在别处登入"框。
             PaicarSession.load()
-            if !PaicarModuleView.didAutoLoginOnce && !PaicarSession.savedUserNo.isEmpty && !PaicarSession.savedUserPwd.isEmpty {
-                PaicarModuleView.didAutoLoginOnce = true
+            if PaicarApi.justLoggedOut {
+                loggedIn = false
+                autoLogging = false
+            } else if !PaicarSession.savedUserNo.isEmpty && !PaicarSession.savedUserPwd.isEmpty && !PaicarSession.loggedIn {
                 loggedIn = false
                 autoLogging = true
                 autoLogin()
