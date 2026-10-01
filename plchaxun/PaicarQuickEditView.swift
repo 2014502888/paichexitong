@@ -28,26 +28,25 @@ struct PaicarQuickEditView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ZStack {
+            // 抬头居中：扣除左右占位符（左返回键 44 固定 + 右侧按钮按内容宽），标题在剩余空间居中
+            HStack(spacing: 0) {
+                Button {
+                    presentationMode.wrappedValue.dismiss()
+                } label: {
+                    Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold)).foregroundColor(.blue).frame(width: 44, height: 44).contentShape(Rectangle())
+                }
                 Text("申请配置")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(fg)
-                HStack(spacing: 0) {
-                    Button {
-                        presentationMode.wrappedValue.dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold)).foregroundColor(.blue).frame(width: 44, height: 44).contentShape(Rectangle())
-                    }
-                    Spacer()
-                    Button("添加") { addRow() }
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(blue)
-                        .padding(.trailing, 12)
-                    Button("保存") { save() }
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(blue)
-                        .padding(.trailing, 16)
-                }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                Button("添加") { addRow() }
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(blue)
+                    .padding(.trailing, 12)
+                Button("保存") { save() }
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(blue)
+                    .padding(.trailing, 16)
             }
             .frame(height: 44)
             .background(pageBg)
