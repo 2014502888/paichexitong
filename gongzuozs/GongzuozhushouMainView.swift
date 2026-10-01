@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct RootView: View {
+struct GongzuozhushouMainView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var showPaicar = false
 

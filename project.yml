@@ -1,6 +1,6 @@
 name: gongzuozs
 options:
-  bundleIdPrefix: com.mailtracker
+  bundleIdPrefix: com.gongzuozhushou
   deploymentTarget:
     iOS: "15.0"
 targets:
@@ -11,7 +11,7 @@ targets:
       - path: gongzuozs
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.mailtracker.unified
+        PRODUCT_BUNDLE_IDENTIFIER: com.gongzuozhushou
         MARKETING_VERSION: 1.0
         CURRENT_PROJECT_VERSION: 1
         INFOPLIST_FILE: gongzuozs/Info.plist
