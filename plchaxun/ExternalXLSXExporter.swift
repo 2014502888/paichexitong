@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - XLSX 导出
 // 通过手写 OpenXML（SpreadsheetML）并自行打包 ZIP（store 模式）生成 .xlsx
-enum ExternalXLSXExporter {
+enum WaiwangXLSXExporter {
 
     static let columns: [String] = [
         "邮件单号",          // 1
@@ -36,7 +36,7 @@ enum ExternalXLSXExporter {
         return "物流查询_\(f.string(from: Date()))"
     }
 
-    static func export(_ results: [ExternalMailResult]) -> Data {
+    static func export(_ results: [WaiwangMailResult]) -> Data {
         var rows: [[String]] = [columns]
         for r in results {
             let isFailed = r.status.isFailed
@@ -76,7 +76,7 @@ enum ExternalXLSXExporter {
             ("xl/worksheets/sheet1.xml", Data(sheetXML(rows: rows).utf8)),
             ("xl/styles.xml", Data(stylesXML.utf8))
         ]
-        return ExternalSimpleZip.archive(files: files)
+        return WaiwangSimpleZip.archive(files: files)
     }
 
     static func columnLetter(_ index: Int) -> String {
@@ -195,7 +195,7 @@ enum ExternalXLSXExporter {
 }
 
 // MARK: - 手写 ZIP 打包器（store 模式，无压缩）
-struct ExternalSimpleZip {
+struct WaiwangSimpleZip {
 
     static func archive(files: [(name: String, data: Data)]) -> Data {
         var output = Data()

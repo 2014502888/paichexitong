@@ -12,7 +12,7 @@ struct WebSite: Identifiable {
     let desktopUA: Bool
 }
 
-enum WebHelperConfig {
+enum WangzhizhushouConfig {
     static let sites: [WebSite] = [
         WebSite(name: "吾爱破解", url: "https://www.52pojie.cn", needWechatUA: false, desktopUA: false),
         WebSite(name: "无忧启动", url: "https://wuyou.net", needWechatUA: false, desktopUA: false),
@@ -52,7 +52,7 @@ enum WebPasswordStore {
 
 // MARK: - 单个站点 WebView 封装
 
-struct WebHelperWebView: UIViewRepresentable {
+struct WangzhizhushouWebView: UIViewRepresentable {
     let site: WebSite
     let index: Int
     let backTick: Int
@@ -95,9 +95,9 @@ struct WebHelperWebView: UIViewRepresentable {
         webView.allowsBackForwardNavigationGestures = false
         webView.tag = 1000 + index
         if site.needWechatUA {
-            webView.customUserAgent = WebHelperConfig.wechatUA
+            webView.customUserAgent = WangzhizhushouConfig.wechatUA
         } else if site.desktopUA {
-            webView.customUserAgent = WebHelperConfig.desktopUA
+            webView.customUserAgent = WangzhizhushouConfig.desktopUA
         }
         context.coordinator.webView = webView
         // 仅当前选中的站点立即加载；其余等到被点击切换时再加载（见 updateUIView ensureLoaded）
@@ -123,7 +123,7 @@ struct WebHelperWebView: UIViewRepresentable {
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKDownloadDelegate {
-        var parent: WebHelperWebView
+        var parent: WangzhizhushouWebView
         weak var webView: WKWebView?
         var lastBackTick = 0
         /// 网页「上一页」快照：交互式后退时左边露出的预览内容
@@ -134,7 +134,7 @@ struct WebHelperWebView: UIViewRepresentable {
         private var didAutoFill = false
         private var pendingDownloadFilename: String?
 
-        init(_ parent: WebHelperWebView) {
+        init(_ parent: WangzhizhushouWebView) {
             self.parent = parent
         }
 
@@ -245,7 +245,7 @@ struct WebHelperWebView: UIViewRepresentable {
         // MARK: 自动填充（对应安卓 autofillCredentials，JS 注入账号密码）
         private func autoFillIfNeeded(_ webView: WKWebView) {
             guard !didAutoFill, let url = webView.url else { return }
-            let host = WebHelperConfig.host(of: url.absoluteString)
+            let host = WangzhizhushouConfig.host(of: url.absoluteString)
             guard let cred = WebPasswordStore.get(host) else { return }
             didAutoFill = true
             let safeAccount = String(data: try! JSONSerialization.data(withJSONObject: [cred.0]), encoding: .utf8)!
@@ -267,7 +267,7 @@ struct WebHelperWebView: UIViewRepresentable {
 
 // MARK: - 主界面（对应安卓 WebHelperMainActivity）
 
-struct WebHelperView: View {
+struct WangzhizhushouView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.presentationMode) private var presentationMode
     @State private var currentIndex = 0
@@ -303,9 +303,9 @@ struct WebHelperView: View {
 
                 // 5 个站点 WebView 常驻切换
                 ZStack {
-                    ForEach(0..<WebHelperConfig.sites.count, id: \.self) { i in
-                        WebHelperWebView(
-                            site: WebHelperConfig.sites[i],
+                    ForEach(0..<WangzhizhushouConfig.sites.count, id: \.self) { i in
+                        WangzhizhushouWebView(
+                            site: WangzhizhushouConfig.sites[i],
                             index: i,
                             backTick: backTick,
                             isActive: currentIndex == i,
@@ -350,7 +350,7 @@ struct WebHelperView: View {
                 }
         )
         .sheet(isPresented: $showAccount) {
-            WebHelperAccountView()
+            WangzhizhushouAccountView()
         }
         .sheet(isPresented: $showShare) {
             if let url = shareURL {
@@ -358,7 +358,7 @@ struct WebHelperView: View {
             }
         }
         .onChange(of: currentIndex) { newIndex in
-            title = WebHelperConfig.sites[newIndex].name
+            title = WangzhizhushouConfig.sites[newIndex].name
         }
         .onChange(of: showShare) { showing in
             if showing {
@@ -419,11 +419,11 @@ struct WebHelperView: View {
     /// 底部 5 个 tab：字号 13 固定；选中四周实线边框（浅色黑线/深色白线），未选中灰字
     private var bottomTabs: some View {
         HStack(spacing: 6) {
-            ForEach(0..<WebHelperConfig.sites.count, id: \.self) { i in
+            ForEach(0..<WangzhizhushouConfig.sites.count, id: \.self) { i in
                 Button {
                     currentIndex = i
                 } label: {
-                    Text(WebHelperConfig.sites[i].name)
+                    Text(WangzhizhushouConfig.sites[i].name)
                         .font(.system(size: 13))
                         .lineLimit(1)
                         .padding(.horizontal, 8)
@@ -475,7 +475,7 @@ struct WebHelperView: View {
 
 // MARK: - 账号管理（对应安卓 WebHelperAccountActivity）
 
-struct WebHelperAccountView: View {
+struct WangzhizhushouAccountView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.presentationMode) private var presentationMode
     @State private var accounts: [String: String] = [:]
@@ -510,8 +510,8 @@ struct WebHelperAccountView: View {
 
                 ScrollView {
                     VStack(spacing: 0) {
-                        ForEach(Array(WebHelperConfig.sites.enumerated()), id: \.element.id) { index, site in
-                            let host = WebHelperConfig.host(of: site.url)
+                        ForEach(Array(WangzhizhushouConfig.sites.enumerated()), id: \.element.id) { index, site in
+                            let host = WangzhizhushouConfig.host(of: site.url)
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(site.name)
                                     .font(.system(size: 16, weight: .bold))
@@ -534,7 +534,7 @@ struct WebHelperAccountView: View {
                             .padding(.vertical, 12)
                             .padding(.horizontal, 16)
 
-                            if index < WebHelperConfig.sites.count - 1 {
+                            if index < WangzhizhushouConfig.sites.count - 1 {
                                 Divider().background(colorScheme == .dark ? Color(white: 0.25) : Color(white: 0.85))
                             }
                         }
@@ -558,8 +558,8 @@ struct WebHelperAccountView: View {
             .background(pageBg)
             .navigationBarHidden(true)
             .onAppear {
-                for site in WebHelperConfig.sites {
-                    let host = WebHelperConfig.host(of: site.url)
+                for site in WangzhizhushouConfig.sites {
+                    let host = WangzhizhushouConfig.host(of: site.url)
                     if let cred = WebPasswordStore.get(host) {
                         accounts[host] = cred.0
                         passwords[host] = cred.1
@@ -588,8 +588,8 @@ struct WebHelperAccountView: View {
 
     private func save() {
         var saved = 0
-        for site in WebHelperConfig.sites {
-            let host = WebHelperConfig.host(of: site.url)
+        for site in WangzhizhushouConfig.sites {
+            let host = WangzhizhushouConfig.host(of: site.url)
             let account = (accounts[host] ?? "").trimmingCharacters(in: .whitespaces)
             let password = passwords[host] ?? ""
             if !account.isEmpty || !password.isEmpty {

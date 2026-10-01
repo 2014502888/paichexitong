@@ -2,14 +2,14 @@ import SwiftUI
 import UIKit
 
 // MARK: - 主界面（按照原应用设计）
-struct ExternalView: View {
+struct WaiwangView: View {
 
     @Environment(\.presentationMode) var presentationMode
     @State private var keyboardVisible = false
-    @StateObject private var engine = ExternalQueryEngine()
+    @StateObject private var engine = WaiwangQueryEngine()
 
-    @State private var selectedTab: ExternalResultTab = .success
-    @State private var showingDetail: ExternalMailResult?
+    @State private var selectedTab: WaiwangResultTab = .success
+    @State private var showingDetail: WaiwangMailResult?
 
     // 🆕 多选复制相关状态
     @State private var selectionMode = false
@@ -99,7 +99,7 @@ struct ExternalView: View {
             }
         }
         .sheet(item: $showingDetail) { result in
-            NavigationView { ExternalTraceDetailView(result: result) }
+            NavigationView { WaiwangTraceDetailView(result: result) }
         }
         .onChange(of: selectedTab) { _ in
             selectionMode = false
@@ -135,7 +135,7 @@ struct ExternalView: View {
                 } else if engine.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text("单号（每行一个，自动过滤中文）")
                 } else {
-                    let info = ExternalTrackParsing.parseInputDetailed(engine.inputText)
+                    let info = WaiwangTrackParsing.parseInputDetailed(engine.inputText)
                     Text("\(info.valid.count) 个准备查询")
                     if info.invalid > 0 {
                         Text("（\(info.invalid) 个非正确单号）")
@@ -299,7 +299,7 @@ struct ExternalView: View {
             .padding(.horizontal)
 
             Picker("结果", selection: $selectedTab) {
-                ForEach(ExternalResultTab.allCases) { tab in
+                ForEach(WaiwangResultTab.allCases) { tab in
                     Text("\(tab.title) (\(countFor(tab)))")
                         .tag(tab)
                 }
@@ -345,7 +345,7 @@ struct ExternalView: View {
                             .foregroundColor(selectedMailNums.contains(result.mailNum)
                                              ? Color.blue : Color.secondary)
                     }
-                    ExternalResultRow(result: result)
+                    WaiwangResultRow(result: result)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -397,7 +397,7 @@ struct ExternalView: View {
 
     // MARK: - 列表数据
 
-    private var currentList: [ExternalMailResult] {
+    private var currentList: [WaiwangMailResult] {
         switch selectedTab {
         case .success:   return engine.successResults
         case .abnormal:  return engine.abnormalResults
@@ -406,7 +406,7 @@ struct ExternalView: View {
         }
     }
 
-    private func countFor(_ tab: ExternalResultTab) -> Int {
+    private func countFor(_ tab: WaiwangResultTab) -> Int {
         switch tab {
         case .success:   return engine.successCount
         case .abnormal:  return engine.abnormalCount
@@ -426,7 +426,7 @@ struct ExternalView: View {
 
     // MARK: - 交互
 
-    private func handleRowTap(_ result: ExternalMailResult) {
+    private func handleRowTap(_ result: WaiwangMailResult) {
         if selectionMode && selectedTab == .success {
             // 🆕 多选模式：勾选/取消
             if selectedMailNums.contains(result.mailNum) {
@@ -477,9 +477,9 @@ struct ExternalView: View {
     // MARK: - 导出 XLSX
 
     private func exportXLSX() {
-        let data = ExternalXLSXExporter.export(engine.results)
+        let data = WaiwangXLSXExporter.export(engine.results)
         let tempDir = FileManager.default.temporaryDirectory
-        let fileName = ExternalXLSXExporter.defaultFileName() + ".xlsx"
+        let fileName = WaiwangXLSXExporter.defaultFileName() + ".xlsx"
         let url = tempDir.appendingPathComponent(fileName)
         do {
             try data.write(to: url)
@@ -501,8 +501,8 @@ struct ExternalView: View {
 }
 
 // MARK: - 结果行（按照原应用设计）
-struct ExternalResultRow: View {
-    let result: ExternalMailResult
+struct WaiwangResultRow: View {
+    let result: WaiwangMailResult
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -622,8 +622,8 @@ struct ExternalResultRow: View {
     // 计算最早和最晚轨迹之间的时间差：X分 / X小时 / X天
     private var traceDurationBetween: String? {
         guard result.traces.count >= 2 else { return nil }
-        guard let firstDate = ExternalTrackParsing.parseDate(result.traces.first?.time ?? ""),
-              let lastDate = ExternalTrackParsing.parseDate(result.traces.last?.time ?? "") else { return nil }
+        guard let firstDate = WaiwangTrackParsing.parseDate(result.traces.first?.time ?? ""),
+              let lastDate = WaiwangTrackParsing.parseDate(result.traces.last?.time ?? "") else { return nil }
         let interval = abs(lastDate.timeIntervalSince(firstDate))
         if interval < 60 {
             return "\(Int(interval))秒"

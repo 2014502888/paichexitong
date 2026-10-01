@@ -5,9 +5,9 @@ struct SessionExpiredError: Error {
     let message: String
 }
 
-class NetworkManager: NSObject, URLSessionDelegate {
+class Neiwang: NSObject, URLSessionDelegate {
 
-    static let shared = NetworkManager()
+    static let shared = Neiwang()
 
     private let baseURL = "http://211.156.201.20:8012"
     private let userId = "E00000097801"

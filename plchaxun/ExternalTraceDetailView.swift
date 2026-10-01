@@ -2,9 +2,9 @@ import SwiftUI
 import UIKit
 
 // MARK: - 单号轨迹详情（iOS 版）
-struct ExternalTraceDetailView: View {
+struct WaiwangTraceDetailView: View {
 
-    let result: ExternalMailResult
+    let result: WaiwangMailResult
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
 

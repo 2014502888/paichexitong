@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - 输入解析 / 日期解析 / 轨迹整理
-enum ExternalTrackParsing {
+enum WaiwangTrackParsing {
 
     static let dateFormats: [String] = [
         "yyyy-MM-dd HH:mm:ss",
@@ -46,8 +46,8 @@ enum ExternalTrackParsing {
         return raw
     }
 
-    static func traceNode(from raw: MailTraceRaw) -> ExternalTraceNode {
-        ExternalTraceNode(
+    static func traceNode(from raw: MailTraceRaw) -> WaiwangTraceNode {
+        WaiwangTraceNode(
             time: displayTime(raw.acceptTime ?? raw.operatingTime),
             info: raw.acceptInfo ?? raw.remark ?? "—",
             province: raw.acceptProvince ?? raw.provName ?? "",

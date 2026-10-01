@@ -3,7 +3,7 @@ import UIKit
 
 // MARK: - 远程开机（对应安卓 RemoteBootActivity）
 
-struct RemoteBootView: View {
+struct YuanchengkaijiView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.presentationMode) private var presentationMode
 
@@ -245,7 +245,7 @@ struct RemoteBootView: View {
         isLoading = true
         var req = URLRequest(url: URL(string: loginURL)!)
         req.httpMethod = "POST"
-        req.setValue(WebHelperConfig.wechatUA, forHTTPHeaderField: "User-Agent")
+        req.setValue(WangzhizhushouConfig.wechatUA, forHTTPHeaderField: "User-Agent")
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         let a = account.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? account
         let p = password.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? password
@@ -315,7 +315,7 @@ struct RemoteBootView: View {
         }
         isLoading = true
         var req = URLRequest(url: URL(string: cmdURL + "?topics=\(device.id)&message=\(action.code)")!)
-        req.setValue(WebHelperConfig.wechatUA, forHTTPHeaderField: "User-Agent")
+        req.setValue(WangzhizhushouConfig.wechatUA, forHTTPHeaderField: "User-Agent")
         req.setValue(cookie, forHTTPHeaderField: "Cookie")
         req.setValue(loginURL, forHTTPHeaderField: "Referer")
 

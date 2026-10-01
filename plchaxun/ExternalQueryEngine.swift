@@ -3,7 +3,7 @@ import Combine
 import UIKit
 
 // MARK: - 查询引擎
-final class ExternalQueryEngine: ObservableObject {
+final class WaiwangQueryEngine: ObservableObject {
 
     @Published var inputText = ""
     @Published var isQuerying = false
@@ -14,7 +14,7 @@ final class ExternalQueryEngine: ObservableObject {
     // 🆕 并发查询数：可调 1~20，默认 8（实测服务器吞吐约4~5单/秒，8并发性价比最高）
     @Published var concurrency = 8
 
-    @Published private(set) var results: [ExternalMailResult] = []
+    @Published private(set) var results: [WaiwangMailResult] = []
     // 查询完成时递增，强制结果列表整体重建一次（保证首帧渲染就是最新数据）
     @Published var renderToken = 0
 
@@ -30,7 +30,7 @@ final class ExternalQueryEngine: ObservableObject {
         }
     }
 
-    var successResults: [ExternalMailResult] {
+    var successResults: [WaiwangMailResult] {
         // 成功界面每个单号只保留一条（真正查询成功的），本批重复过的打上"重复"标记
         var list = results.filter { $0.status.isSuccess }
         let dupNums = Set(results.filter { $0.status == .duplicate }.map(\.mailNum))
@@ -54,11 +54,11 @@ final class ExternalQueryEngine: ObservableObject {
         }
     }
 
-    var abnormalResults: [ExternalMailResult] {
+    var abnormalResults: [WaiwangMailResult] {
         results.filter(\.isAbnormal)
     }
 
-    var failedResults: [ExternalMailResult] {
+    var failedResults: [WaiwangMailResult] {
         // 本批重复过的失败单号也打上重复标记（显示黄色胶囊）
         let dupNums = Set(results.filter { $0.status == .duplicate }.map(\.mailNum))
         guard !dupNums.isEmpty else { return results.filter { $0.status.isFailed } }
@@ -69,7 +69,7 @@ final class ExternalQueryEngine: ObservableObject {
         }
     }
 
-    var duplicateResults: [ExternalMailResult] {
+    var duplicateResults: [WaiwangMailResult] {
         results.filter { $0.status == .duplicate }
     }
 
@@ -84,7 +84,7 @@ final class ExternalQueryEngine: ObservableObject {
         // 防止重复点击
         guard !isQuerying else { return }
 
-        let nums = ExternalTrackParsing.parseInput(inputText)
+        let nums = WaiwangTrackParsing.parseInput(inputText)
         guard !nums.isEmpty else { return }
 
         let startDate = Date()
@@ -142,9 +142,9 @@ final class ExternalQueryEngine: ObservableObject {
         let semaphore = AsyncSemaphore(value: max(1, concurrency))
 
         // 用 task group 收集结果
-        var collected: [Int: ExternalMailResult] = [:]
+        var collected: [Int: WaiwangMailResult] = [:]
 
-        await withTaskGroup(of: (index: Int, result: ExternalMailResult).self) { group in
+        await withTaskGroup(of: (index: Int, result: WaiwangMailResult).self) { group in
             for (index, num) in nums.enumerated() {
                 if Task.isCancelled { break }
 
@@ -153,7 +153,7 @@ final class ExternalQueryEngine: ObservableObject {
                     defer { semaphore.signal() }
 
                     if Task.isCancelled {
-                        return (index, ExternalMailResult(
+                        return (index, WaiwangMailResult(
                             mailNum: num,
                             status: .failed("已取消"), error: "已取消",
                             traces: []
@@ -162,7 +162,7 @@ final class ExternalQueryEngine: ObservableObject {
 
                     // 先判断单号长度，必须正好13位，不是的直接失败，标签"非正确单号"
                     if num.count != 13 {
-                        return (index, ExternalMailResult(
+                        return (index, WaiwangMailResult(
                             mailNum: num,
                             status: .failed("非正确单号"), error: "非正确单号",
                             traces: []
@@ -171,7 +171,7 @@ final class ExternalQueryEngine: ObservableObject {
 
                     // 重试逻辑：失败自动重试2次
                     var outcome: FetchResult
-                    outcome = await ExternalTrackAPI.fetch(num)
+                    outcome = await WaiwangTrackAPI.fetch(num)
                     var retryCount = 0
                     func shouldRetry() -> Bool {
                         switch outcome {
@@ -183,10 +183,10 @@ final class ExternalQueryEngine: ObservableObject {
                         retryCount += 1
                         // 稍微等一下再重试
                         try? await Task.sleep(nanoseconds: 500_000_000)
-                        outcome = await ExternalTrackAPI.fetch(num)
+                        outcome = await WaiwangTrackAPI.fetch(num)
                     }
 
-                    var result = ExternalMailResult(
+                    var result = WaiwangMailResult(
                         mailNum: num,
                         status: .failed("Unknown error"),
                         error: nil,
@@ -195,7 +195,7 @@ final class ExternalQueryEngine: ObservableObject {
 
                     switch outcome {
                     case .success(let raws):
-                        result.traces = raws.map(ExternalTrackParsing.traceNode)
+                        result.traces = raws.map(WaiwangTrackParsing.traceNode)
                         result.status = .success
                         result.isDuplicate = false
 
@@ -216,8 +216,8 @@ final class ExternalQueryEngine: ObservableObject {
                             result.acceptOrg = first.orgName ?? ""
                             // 计算历时：最早一条 - 最晚一条（不管顺序，同时取 operatingTime 和 acceptTime）
                             let times = raws.compactMap { trace -> Date? in
-                                if let t = trace.operatingTime, let d = ExternalTrackParsing.parseDate(t) { return d }
-                                if let t = trace.acceptTime, let d = ExternalTrackParsing.parseDate(t) { return d }
+                                if let t = trace.operatingTime, let d = WaiwangTrackParsing.parseDate(t) { return d }
+                                if let t = trace.acceptTime, let d = WaiwangTrackParsing.parseDate(t) { return d }
                                 return nil
                             }
                             if let earliest = times.min(), let latest = times.max() {
@@ -269,9 +269,9 @@ final class ExternalQueryEngine: ObservableObject {
 
     // 按输入顺序识别重复：第一个出现的单号保留原结果，后续重复的单号
     // 复制第一个的结果并标记 status = .duplicate / isDuplicate = true（不依赖网络等待，稳定可靠）
-    private static func markDuplicates(_ list: [ExternalMailResult]) -> [ExternalMailResult] {
+    private static func markDuplicates(_ list: [WaiwangMailResult]) -> [WaiwangMailResult] {
         var seen = Set<String>()
-        var out: [ExternalMailResult] = []
+        var out: [WaiwangMailResult] = []
         for r in list {
             if seen.contains(r.mailNum) {
                 if let first = out.first(where: { $0.mailNum == r.mailNum }) {
@@ -382,11 +382,11 @@ private func calculateDurationToDeliver(raws: [MailTraceRaw]) -> String {
     // 取第一条时间（同时考虑 operatingTime 和 acceptTime）
     var firstDate: Date? = nil
     for raw in raws {
-        if let t = raw.operatingTime, let d = ExternalTrackParsing.parseDate(t) {
+        if let t = raw.operatingTime, let d = WaiwangTrackParsing.parseDate(t) {
             firstDate = d
             break
         }
-        if let t = raw.acceptTime, let d = ExternalTrackParsing.parseDate(t) {
+        if let t = raw.acceptTime, let d = WaiwangTrackParsing.parseDate(t) {
             firstDate = d
             break
         }
@@ -412,11 +412,11 @@ private func calculateDurationToDeliver(raws: [MailTraceRaw]) -> String {
         if let remark = raw.remark {
             for keyword in deliveredKeywords {
                 if remark.contains(keyword) {
-                    if let t = raw.operatingTime, let d = ExternalTrackParsing.parseDate(t) {
+                    if let t = raw.operatingTime, let d = WaiwangTrackParsing.parseDate(t) {
                         deliveredDate = d
                         break
                     }
-                    if let t = raw.acceptTime, let d = ExternalTrackParsing.parseDate(t) {
+                    if let t = raw.acceptTime, let d = WaiwangTrackParsing.parseDate(t) {
                         deliveredDate = d
                         break
                     }
@@ -429,11 +429,11 @@ private func calculateDurationToDeliver(raws: [MailTraceRaw]) -> String {
     // 找最后一条轨迹的时间（如果妥投后还有新轨迹，就用最后一条时间）
     var lastDate: Date? = nil
     for raw in raws.reversed() {
-        if let t = raw.operatingTime, let d = ExternalTrackParsing.parseDate(t) {
+        if let t = raw.operatingTime, let d = WaiwangTrackParsing.parseDate(t) {
             lastDate = d
             break
         }
-        if let t = raw.acceptTime, let d = ExternalTrackParsing.parseDate(t) {
+        if let t = raw.acceptTime, let d = WaiwangTrackParsing.parseDate(t) {
             lastDate = d
             break
         }

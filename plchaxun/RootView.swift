@@ -30,10 +30,10 @@ struct RootView: View {
                                 .cornerRadius(25)
                         }
 
-                        entryButton("外网查询", color: green) { ExternalView() }
+                        entryButton("外网查询", color: green) { WaiwangView() }
                         entryButton("内网查询", color: yellow) { InternalView() }
-                        entryButton("网址助手", color: Color(red: 1.0, green: 0.43, blue: 0.25)) { WebHelperView() }
-                        entryButton("远程开机", color: purple) { RemoteBootView() }
+                        entryButton("网址助手", color: Color(red: 1.0, green: 0.43, blue: 0.25)) { WangzhizhushouView() }
+                        entryButton("远程开机", color: purple) { YuanchengkaijiView() }
 
                     }
                     .frame(minHeight: geo.size.height)

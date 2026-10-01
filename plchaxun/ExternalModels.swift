@@ -18,11 +18,11 @@ enum QueryOutcome: Hashable {
 }
 
 // MARK: - 单个单号的查询结果
-struct ExternalMailResult: Identifiable, Equatable {
+struct WaiwangMailResult: Identifiable, Equatable {
     var mailNum: String
     var status: QueryOutcome
     var error: String?
-    var traces: [ExternalTraceNode]
+    var traces: [WaiwangTraceNode]
 
     // 导出用字段
     var lastTime: String = ""
@@ -51,7 +51,7 @@ struct ExternalMailResult: Identifiable, Equatable {
     // 保证同一单号在成功页/重复页的不同条目 id 不同，避免 SwiftUI 行视图跨标签复用
     var id: String = ""
 
-    var lastNode: ExternalTraceNode? { traces.last }
+    var lastNode: WaiwangTraceNode? { traces.last }
 
     // 异常判断：最后一条轨迹不属派送/妥投/验收/计划类收尾状态，
     // 且最后一条轨迹时间超过 48 小时（2 天）未更新 → 异常
@@ -59,17 +59,17 @@ struct ExternalMailResult: Identifiable, Equatable {
         if status.isFailed || status == .duplicate { return false }
         guard let last = lastNode else { return false }
         for kw in closingKeywords where last.info.contains(kw) { return false }
-        guard let t = ExternalTrackParsing.parseDate(last.time) else { return false }
+        guard let t = WaiwangTrackParsing.parseDate(last.time) else { return false }
         return Date() > t.addingTimeInterval(48 * 3600)
     }
 
-    static func == (lhs: ExternalMailResult, rhs: ExternalMailResult) -> Bool {
+    static func == (lhs: WaiwangMailResult, rhs: WaiwangMailResult) -> Bool {
         lhs.mailNum == rhs.mailNum
     }
 }
 
 // MARK: - 轨迹节点（界面展示用）
-struct ExternalTraceNode: Identifiable {
+struct WaiwangTraceNode: Identifiable {
     let id = UUID()
     let time: String
     let info: String
@@ -136,7 +136,7 @@ let closingKeywords: [String] = [
 ]
 
 // MARK: - 结果标签页
-enum ExternalResultTab: String, CaseIterable, Hashable, Identifiable {
+enum WaiwangResultTab: String, CaseIterable, Hashable, Identifiable {
     case success
     case abnormal
     case failed

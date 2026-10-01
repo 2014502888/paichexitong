@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - 轨迹查询接口
 // 完全按照原应用抓包结果：GET 请求，单号直接拼接到 URL 路径末尾
-enum ExternalTrackAPI {
+enum WaiwangTrackAPI {
 
     // 共享 URLSession，避免每次都创建新的
     private static let sharedSession: URLSession = {

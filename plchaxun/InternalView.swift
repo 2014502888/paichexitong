@@ -137,7 +137,7 @@ final class InternalQueryEngine: ObservableObject {
         guard !isQuerying else { return }
         // 🆕 每次查询前清除 token 缓存：导入新 HAR 后天然立即生效（不再依赖 resetToken 调用时机），
         // 同时避免复用过期 token；批次内仍由 tokenTask 合并为 1 个 xmGetToken 请求，不额外耗请求
-        NetworkManager.shared.resetToken()
+        Neiwang.shared.resetToken()
         let nums = InternalTrackParsing.parseInput(inputText)
         guard !nums.isEmpty else { return }
         let startDate = Date()
@@ -180,7 +180,7 @@ final class InternalQueryEngine: ObservableObject {
                         return (index, InternalMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "已停止（会话失效）"))
                     }
                     do {
-                        let json = try await NetworkManager.shared.query(mailNo: num)
+                        let json = try await Neiwang.shared.query(mailNo: num)
                         await semaphore.signal()
                         // 🆕 检测服务端限次：达到最大次数时标记，剩余查询立即停止
                         if let msg = json["msg"] as? String, msg.contains("次数") || msg.contains("限制") {
@@ -194,7 +194,7 @@ final class InternalQueryEngine: ObservableObject {
                         return (index, InternalMailResult(mailNum: num, traces: [], weight: "", fee: "", destProvince: "", destCity: "", error: "会话失效：\(e.message)"))
                     } catch {
                         do {
-                            let json = try await NetworkManager.shared.query(mailNo: num)
+                            let json = try await Neiwang.shared.query(mailNo: num)
                             await semaphore.signal()
                             if let msg = json["msg"] as? String, msg.contains("次数") || msg.contains("限制") {
                                 self.rateLimited = true
