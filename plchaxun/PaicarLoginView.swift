@@ -402,10 +402,11 @@ extension Notification.Name {
 struct PaicarToast: View {
     let text: String
     let dark: Bool
+    var isError: Bool = false
     var body: some View {
         Text(text)
             .font(.system(size: 14))
-            .foregroundColor(dark ? .white : .black)
+            .foregroundColor(isError ? .red : (dark ? .white : .black))
             .padding(.horizontal, 24)
             .padding(.vertical, 12)
             .background(dark ? Color(red: 0.086, green: 0.086, blue: 0.086) : Color(red: 0.95, green: 0.95, blue: 0.95))

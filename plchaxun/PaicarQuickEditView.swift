@@ -15,6 +15,7 @@ struct PaicarQuickEditView: View {
     @State private var loading = true
     @State private var saved = false
     @State private var toastMsg: String?
+    @State private var toastError = false
     @State private var expanded: [Bool] = []
 
     private var isDark: Bool { colorScheme == .dark }
@@ -81,7 +82,7 @@ struct PaicarQuickEditView: View {
         .overlay(
             Group {
                 if let msg = toastMsg {
-                    PaicarToast(text: msg, dark: isDark)
+                    PaicarToast(text: msg, dark: isDark, isError: toastError)
                         .onAppear {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
                                 self.toastMsg = nil
@@ -338,6 +339,26 @@ struct PaicarQuickEditView: View {
     }
 
     private func save() {
+        // 校验启用行：必填项缺失则红色提示并阻止保存（未启用的行跳过）
+        var incomplete: [String] = []
+        for i in rows.indices {
+            guard rows[i]["enabled"] == "1" else { continue }
+            var missing: [String] = []
+            if (rows[i]["customerName"] ?? "").isEmpty { missing.append("客户") }
+            if (rows[i]["number"] ?? "").isEmpty { missing.append("件数") }
+            if (rows[i]["carSpecs"] ?? "").isEmpty { missing.append("车型") }
+            if (rows[i]["liaisonName"] ?? "").isEmpty { missing.append("联系人") }
+            if (rows[i]["routeName"] ?? "").isEmpty { missing.append("邮路") }
+            if (rows[i]["hour"] ?? "").isEmpty { missing.append("到达时间") }
+            if !missing.isEmpty {
+                incomplete.append("第 \(i + 1) 部缺：\(missing.joined(separator: "、"))")
+            }
+        }
+        if !incomplete.isEmpty {
+            toastError = true
+            toastMsg = incomplete.joined(separator: "；")
+            return
+        }
         var cleaned = rows
         for i in cleaned.indices {
             if cleaned[i]["enabled"] == "1" {
@@ -358,6 +379,7 @@ struct PaicarQuickEditView: View {
         }
         PaicarApi.saveQuickCars(cleaned)
         saved = true
+        toastError = false
         toastMsg = "配置已保存"
     }
 
