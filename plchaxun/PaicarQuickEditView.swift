@@ -212,12 +212,15 @@ struct PaicarQuickEditView: View {
         // 勾上启用时自动展开，避免刚启用的配置看不到内容
         if rows[idx]["enabled"] == "1", expanded.indices.contains(idx) {
             expanded[idx] = true
+            rows[idx]["expanded"] = "1"
         }
     }
 
     private func toggleExpand(_ idx: Int) {
         guard expanded.indices.contains(idx) else { return }
         expanded[idx].toggle()
+        // 同步折叠状态到行数据，保存后持久化
+        rows[idx]["expanded"] = expanded[idx] ? "1" : "0"
     }
 
     private func confirmDelete(_ idx: Int) {
@@ -233,7 +236,7 @@ struct PaicarQuickEditView: View {
 
     private func addRow() {
         rows.append([
-            "enabled": "1",
+            "enabled": "1", "expanded": "1",
             "customerId": "", "customerName": "", "number": "", "carSpecs": "",
             "hour": "", "liaisonId": "", "liaisonName": "",
             "routeId": "", "routeName": "", "shipment": "0",
@@ -324,7 +327,11 @@ struct PaicarQuickEditView: View {
                     }
                 }
                 rows = loaded
-                expanded = loaded.map { $0["enabled"] == "1" }
+                // 折叠状态持久化：有 expanded 字段按保存的恢复；旧数据无字段则按 enabled 推断（启用展开、未启用折叠）
+                expanded = loaded.map { row in
+                    if let e = row["expanded"] { return e == "1" }
+                    return row["enabled"] == "1"
+                }
             } catch PaicarError.authExpired {
                 loading = false
             } catch {
@@ -360,6 +367,10 @@ struct PaicarQuickEditView: View {
             return
         }
         var cleaned = rows
+        // 保存前同步折叠状态，重新进入时按保存的状态恢复
+        for i in cleaned.indices where expanded.indices.contains(i) {
+            cleaned[i]["expanded"] = expanded[i] ? "1" : "0"
+        }
         for i in cleaned.indices {
             if cleaned[i]["enabled"] == "1" {
                 let cname = cleaned[i]["customerName"] ?? ""
