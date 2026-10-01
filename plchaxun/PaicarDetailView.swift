@@ -586,6 +586,8 @@ struct PaicarApplyDetailView: View {
                     _ = try await PaicarApi.applyOrderAction(id: orderId, action: "recall")
                     acting = false
                     toastMsg = "已撤回，状态变为待提交"
+                    // 通知列表页数据已变：返回派车单界面时 onAppear 检测到脏标记自动重载
+                    PaicarFlags.dispatchDirty = true
                     refresh()
                 } catch PaicarError.authExpired {
                     acting = false
