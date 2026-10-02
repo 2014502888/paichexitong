@@ -261,7 +261,10 @@ struct PaicarDispatchListView: View {
                 PaicarFlags.finishedDirty = false
                 if showFinished { loadFinished() }
                 load()
-            } else if !loading && applies.isEmpty && dispatches.isEmpty && finishedList.isEmpty {
+            } else if !loading && applies.isEmpty && dispatches.isEmpty {
+                // 只要"全部"列表为空就补加载（不再要求 finishedList 也空）：
+                // 之前看过已结单后返回，finishedList 非空会把补加载条件挡住，
+                // 导致"全部"页一直空、要切走再切回才出现数据。
                 load()
             }
         }
@@ -322,7 +325,12 @@ struct PaicarDispatchListView: View {
     private func setShowFinished(_ v: Bool) {
         showFinished = v
         filterFinishedDay = nil
-        if v { loadFinished() } else { /* renderList 自动 */ }
+        if v {
+            loadFinished()
+        } else if !loading && applies.isEmpty && dispatches.isEmpty {
+            // 切回"全部"且数据为空时补加载，避免空列表一直不刷新
+            load()
+        }
     }
 
     private func load() {
@@ -337,9 +345,11 @@ struct PaicarDispatchListView: View {
         Task {
             do {
                 let p = try await PaicarProfileHolder.load()
-                // 串行请求；超时已下沉到 PaicarApi.perform（回调版+强制取消，15 秒内必出结果，不再无限转圈）
-                let rawApplies = try await PaicarApi.applyOrderList(organId: p.organId, rolesId: p.rolesId)
-                let rawDispatch = try await PaicarApi.dispatchOrderList(organId: p.organId, rolesId: p.rolesId, page: 1, perpage: 20)
+                // 两个列表接口互相独立，改为并行请求，加快首次加载
+                // （PaicarApi 每请求独立 ephemeral 会话 + NSURLConnection，并行无死锁风险）
+                async let a = PaicarApi.applyOrderList(organId: p.organId, rolesId: p.rolesId)
+                async let d = PaicarApi.dispatchOrderList(organId: p.organId, rolesId: p.rolesId, page: 1, perpage: 20)
+                let (rawApplies, rawDispatch) = try await (a, d)
                 dispatchPage = 1
                 applies = rawApplies.map { PaicarApplyOrder.fromJson($0) }
                     .filter { $0.statusCode == "000" || $0.statusCode == "001" }

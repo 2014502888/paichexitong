@@ -383,18 +383,9 @@ struct PaicarFinishView: View {
         saving = true
         Task {
             do {
-                // 1) 上传未传照片
-                for i in draftImages.indices where !draftImages[i].uploaded {
-                    let d = draftImages[i]
-                    let r = try await PaicarApi.uploadImage(fileData: d.data, fileName: d.fileName, extra: [("id", orderId)])
-                    let code = ((r["data"] as? [String: Any])?["code"])
-                    let codeInt = (code as? NSNumber)?.intValue ?? ((code as? String) == "1" ? 1 : 0)
-                    if codeInt != 1 {
-                        throw PaicarError.api("照片上传失败")
-                    }
-                    draftImages[i] = DraftImage(fileName: d.fileName, data: d.data, uploaded: true)
-                    saveDraft()
-                }
+                // 1) 并行上传未传照片（对齐安卓：ret==200 即成功，不再检查 data.code，
+                //    并发上传避免 4 张串行太慢）
+                try await uploadAllDrafts()
                 // 2) 提交结单
                 let fr = try await PaicarApi.finish(id: orderId, leaveTime: leaveTime,
                                                     finishDesc: finishDesc.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -427,17 +418,7 @@ struct PaicarFinishView: View {
         saving = true
         Task {
             do {
-                for i in draftImages.indices where !draftImages[i].uploaded {
-                    let d = draftImages[i]
-                    let r = try await PaicarApi.uploadImage(fileData: d.data, fileName: d.fileName, extra: [("id", orderId)])
-                    let code = ((r["data"] as? [String: Any])?["code"])
-                    let codeInt = (code as? NSNumber)?.intValue ?? ((code as? String) == "1" ? 1 : 0)
-                    if codeInt != 1 {
-                        throw PaicarError.api("照片上传失败")
-                    }
-                    draftImages[i] = DraftImage(fileName: d.fileName, data: d.data, uploaded: true)
-                    saveDraft()
-                }
+                try await uploadAllDrafts()
                 saving = false
                 clearDraft()
                 toastMsg = "照片已保存"
@@ -450,6 +431,47 @@ struct PaicarFinishView: View {
                 saving = false
                 toastMsg = (error as? PaicarError)?.errorDescription ?? error.localizedDescription
             }
+        }
+    }
+
+    /// 并行上传所有未上传照片。
+    /// 成功判定对齐安卓：服务端 ret==200（parseBody 已校验）即视为成功，不再检查 data.code——
+    /// 之前因服务端返回无 code 字段而误判"照片上传失败"，导致传不上去/只传一张。
+    /// 并发上传避免 4 张串行等待，显著加快上传速度。
+    private func uploadAllDrafts() async throws {
+        let pending = draftImages.enumerated().filter { !$0.element.uploaded }.map { (index: $0.offset, item: $0.element) }
+        guard !pending.isEmpty else { return }
+        var successIdx: [Int] = []
+        var failed: [String] = []
+        try await withThrowingTaskGroup(of: (Int, String?).self) { group in
+            for (i, d) in pending {
+                group.addTask {
+                    do {
+                        _ = try await PaicarApi.uploadImage(fileData: d.data, fileName: d.fileName, extra: [("id", self.orderId)])
+                        return (i, nil)
+                    } catch let e {
+                        return (i, (e as? PaicarError)?.errorDescription ?? e.localizedDescription)
+                    }
+                }
+            }
+            for try await (i, msg) in group {
+                if msg == nil {
+                    successIdx.append(i)
+                } else {
+                    failed.append("第 \(i + 1) 张：\(msg ?? "")")
+                }
+            }
+        }
+        // 局部数组更新后一次性写回，避免并发访问 @State
+        var updated = draftImages
+        for i in successIdx {
+            let d = updated[i]
+            updated[i] = DraftImage(fileName: d.fileName, data: d.data, uploaded: true)
+        }
+        draftImages = updated
+        saveDraft()
+        if !failed.isEmpty {
+            throw PaicarError.api("照片上传失败：\n" + failed.joined(separator: "\n"))
         }
     }
 
