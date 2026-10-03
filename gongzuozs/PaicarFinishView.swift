@@ -19,6 +19,7 @@ struct PaicarFinishView: View {
     @State private var toastMsg: String?
     @State private var showPhotoPicker = false
     @State private var showCamera = false
+    @State private var submitted = false   // 本次是否点过提交：没点提交就退出 → 删草稿
 
     private let minImages = 4
     private let maxImages = 4
@@ -149,6 +150,14 @@ struct PaicarFinishView: View {
         .onAppear {
             if order == nil { load() }
         }
+        .onDisappear {
+            // 没点过提交就退出（返回/右滑返回）：草稿只是拍照残留，直接删掉，
+            // 不再累积（34065 那种历史残留就是以前拍照后没提交退出留下的）
+            if !submitted {
+                clearDraft()
+                draftImages.removeAll()
+            }
+        }
         .overlay(
             Group {
                 if let msg = toastMsg {
@@ -270,6 +279,10 @@ struct PaicarFinishView: View {
                     // 进页面自动清掉本地草稿，避免 10.1 那种失败残留照片混进来
                     clearDraft()
                     draftImages.removeAll()
+                } else if !UserDefaults.standard.bool(forKey: submitKey()) {
+                    // 上次没点过提交就退出/杀进程：草稿只是拍照残留，直接清掉，不再累积
+                    clearDraft()
+                    draftImages.removeAll()
                 } else {
                     loadDraft()
                 }
@@ -328,8 +341,12 @@ struct PaicarFinishView: View {
     }
 
     // MARK: 草稿（UserDefaults + Documents）
+    // 草稿是从安卓版移植的"防丢照片"机制：拍照/选图即存本地，提交成功才清。
+    // 限制：没点过提交就退出（返回/杀进程）→ 直接删草稿，不再累积残留；
+    // 点过提交（上传/结单失败）→ 保留，下次进入可恢复重传。
 
     private func draftKey() -> String { "paicar_finish_draft_\(orderId)" }
+    private func submitKey() -> String { "paicar_finish_submitted_\(orderId)" }
     private func draftDir() -> URL {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("finish_drafts/\(orderId)", isDirectory: true)
@@ -364,6 +381,7 @@ struct PaicarFinishView: View {
 
     private func clearDraft() {
         UserDefaults.standard.removeObject(forKey: draftKey())
+        UserDefaults.standard.removeObject(forKey: submitKey())
         try? FileManager.default.removeItem(at: draftDir())
     }
 
@@ -371,6 +389,8 @@ struct PaicarFinishView: View {
 
     private func submit() {
         if saving { return }
+        submitted = true
+        UserDefaults.standard.set(true, forKey: submitKey())
         if photoOnly {
             submitPhotosOnly()
             return
