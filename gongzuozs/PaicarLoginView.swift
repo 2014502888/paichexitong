@@ -44,13 +44,16 @@ struct PaicarModuleView: View {
         )
         .onAppear {
             // 对齐安卓：手动退出后(justLoggedOut)停在登录页等手动点；
-            // 其他情况只要有本地账号密码且未登录就自动重登（返回主界面自动退出/完全退出重开都走这里），
-            // 与"完全退出APP重开"行为一致：被顶号再进派车直接登入，不弹"账号已在别处登入"框。
+            // 其他情况只要有本地账号密码就强制自动重登（拿新 token），
+            // 返回主界面自动退出再进、完全退出APP重开都走这里：
+            // 杀进程重开时 UserDefaults 残留旧 token，若仅"未登录才重登"会直接进系统
+            // 用旧 token，旧 token 已被顶号/过期时所有请求失败 → "刚打开完全没数据"；
+            // 强制重登始终拿新 token，根除该问题。
             PaicarSession.load()
             if PaicarApi.justLoggedOut {
                 loggedIn = false
                 autoLogging = false
-            } else if !PaicarSession.savedUserNo.isEmpty && !PaicarSession.savedUserPwd.isEmpty && !PaicarSession.loggedIn {
+            } else if !PaicarSession.savedUserNo.isEmpty && !PaicarSession.savedUserPwd.isEmpty {
                 loggedIn = false
                 autoLogging = true
                 autoLogin()
