@@ -520,6 +520,9 @@ enum PaicarSession {
         if !userPwd.isEmpty { d.set(userPwd, forKey: kUserPwd) }
         PaicarApi.token = token
         PaicarApi.userId = userId
+        // 登录态变了，旧的 profile（organId/rolesId）可能属于上一个账号，必须清缓存重新拉，
+        // 否则换账号/重登后所有列表接口都用旧参数拉出空数据
+        PaicarProfileHolder.reset()
     }
 
     static func clear() {
@@ -529,6 +532,7 @@ enum PaicarSession {
         PaicarApi.token = ""
         PaicarApi.userId = ""
         PaicarApi.hasLoadedOnce = false
+        PaicarProfileHolder.reset()
     }
 }
 
@@ -537,6 +541,11 @@ enum PaicarSession {
 enum PaicarProfileHolder {
     static var profile: PaicarProfile?
     static var loading = false
+
+    static func reset() {
+        profile = nil
+        loading = false
+    }
 
     static func load() async throws -> PaicarProfile {
         if let p = profile { return p }
@@ -552,4 +561,7 @@ enum PaicarProfileHolder {
 enum PaicarFlags {
     static var finishedDirty = false
     static var dispatchDirty = false
+    // 详情页观察到的最新状态（orderId -> statusCode）：详情加载成功才写入，
+    // 返回列表时与列表当前状态对比，不一致才静默刷新（外部改状态也能追到，状态没变零请求）
+    static var detailSeenState: [String: String] = [:]
 }

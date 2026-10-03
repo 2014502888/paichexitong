@@ -142,6 +142,8 @@ struct PaicarDashboardView: View {
                 loading = false
             } catch PaicarError.authExpired {
                 loading = false
+                // token 失效不再静默空：明确提示重新登录，否则表现为"刚打开完全没数据"
+                error = "登录已失效，请重新登录"
             } catch let err {
                 loading = false
                 error = (err as? PaicarError)?.errorDescription ?? err.localizedDescription

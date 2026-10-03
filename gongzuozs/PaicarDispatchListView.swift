@@ -156,7 +156,12 @@ struct PaicarDispatchListView: View {
                                     Button { pushApplyId = o.id } label: { applyCard(o) }
                                         .buttonStyle(.plain)
                                 case .dispatch(let o):
-                                    Button { pushDispatchId = o.id } label: { dispatchCard(o) }
+                                    Button {
+                                        // 进详情前清除该单的"详情观察记录"：详情加载成功会重新写入，
+                                        // 加载失败则无记录 → 返回不误刷
+                                        PaicarFlags.detailSeenState.removeValue(forKey: o.id)
+                                        pushDispatchId = o.id
+                                    } label: { dispatchCard(o) }
                                         .buttonStyle(.plain)
                                 case .hint(let isLast):
                                     moreHint(isLast: isLast)
@@ -253,19 +258,30 @@ struct PaicarDispatchListView: View {
         .onAppear {
             if !didInitialLoad {
                 didInitialLoad = true
-                load()
+                load(showLoading: true)
             } else if PaicarFlags.dispatchDirty || PaicarFlags.finishedDirty {
                 // 结单/撤回/提交成功后回到列表: 脏标记表示数据已变, 必须重载全部列表;
                 // 之前只在"列表为空"时才重载, 导致刚结单完还卡在旧数据不刷新。
                 PaicarFlags.dispatchDirty = false
                 PaicarFlags.finishedDirty = false
                 if showFinished { loadFinished() }
-                load()
+                load(showLoading: false)
             } else if !loading && applies.isEmpty && dispatches.isEmpty {
                 // 只要"全部"列表为空就补加载（不再要求 finishedList 也空）：
                 // 之前看过已结单后返回，finishedList 非空会把补加载条件挡住，
                 // 导致"全部"页一直空、要切走再切回才出现数据。
-                load()
+                load(showLoading: true)
+            } else {
+                // 详情差异检测：详情页观察到某单状态 ≠ 列表当前状态 → 静默刷新。
+                // 场景：外部系统把待分配改成已分配，详情页拉到新状态，返回列表对比发现不一致才刷；
+                // 状态没变零请求。静默刷新不闪转圈，刷新完直接把新数据换上去。
+                let mismatch = dispatches.contains { o in
+                    guard let seen = PaicarFlags.detailSeenState[o.id] else { return false }
+                    return seen != o.statusCode
+                }
+                if mismatch {
+                    load(showLoading: false)
+                }
             }
         }
         // 右缘左滑返回：从已结单子tab切回全部
@@ -333,8 +349,8 @@ struct PaicarDispatchListView: View {
         }
     }
 
-    private func load() {
-        loading = true
+    private func load(showLoading: Bool = true) {
+        if showLoading { loading = true }
         error = ""
         // UI 级硬超时兜底：即使网络层极端异常，16 秒内必结束转圈并显示错误，不再无限转圈
         DispatchQueue.main.asyncAfter(deadline: .now() + 16) {
@@ -361,6 +377,9 @@ struct PaicarDispatchListView: View {
                 loading = false
             } catch PaicarError.authExpired {
                 loading = false
+                // token 失效（被顶号/过期）不再静默置空：明确提示用户重新登录，
+                // 否则表现为"刚打开完全没数据"，只有退出重登才恢复
+                error = "登录已失效，请重新登录"
             } catch let err {
                 loading = false
                 error = (err as? PaicarError)?.errorDescription ?? err.localizedDescription
@@ -433,6 +452,8 @@ struct PaicarDispatchListView: View {
                 finishedLoadedOnce = true
             } catch PaicarError.authExpired {
                 loadingFinished = false
+                // 与"全部"页一致：token 失效不再静默空，明确提示重新登录
+                error = "登录已失效，请重新登录"
             } catch let err {
                 loadingFinished = false
                 error = (err as? PaicarError)?.errorDescription ?? err.localizedDescription
