@@ -12,7 +12,8 @@ struct PaicarRemoteImage: View {
     @State private var image: UIImage?
 
     private static let cache: URLCache = {
-        URLCache(memoryCapacity: 80*1024*1024, diskCapacity: 300*1024*1024)
+        // 只做内存缓存（会话内重复查看秒开）；不做本地磁盘缓存，照片不落盘
+        URLCache(memoryCapacity: 50*1024*1024, diskCapacity: 0)
     }()
 
     var body: some View {
