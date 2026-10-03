@@ -441,6 +441,9 @@ final class AuthDialog {
         let alert = UIAlertController(title: "账号已在别处登入", message: "是否重新登录？", preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "取消", style: .cancel) { _ in
             self.isShowing = false
+            // 用户主动选择不重登：置 justLoggedOut，防止 alert 关闭后 SwiftUI 触发
+            // 模块 onAppear 重跑又强制 autoLogin → autoLogging 空白页死循环
+            PaicarApi.justLoggedOut = true
             PaicarSession.clear()
             PaicarProfileHolder.profile = nil
             NotificationCenter.default.post(name: .paicarForceLogin, object: nil)
@@ -462,6 +465,9 @@ final class AuthDialog {
                     PaicarProfileHolder.profile = nil
                     NotificationCenter.default.post(name: .paicarReloadAfterLogin, object: nil)
                 } catch {
+                    // 服务端拒绝重登（会话被顶/冲突）：也置 justLoggedOut，
+                    // 停在登录页让用户手动处理（换账号/稍后重试），不再自动重登死循环
+                    PaicarApi.justLoggedOut = true
                     PaicarSession.clear()
                     NotificationCenter.default.post(name: .paicarForceLogin, object: nil)
                 }
