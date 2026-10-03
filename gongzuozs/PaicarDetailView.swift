@@ -1,14 +1,18 @@
 import SwiftUI
 import UIKit
+import ImageIO
 
 // MARK: - 远程图片加载（兼容 iOS 14）
+// 优化：加磁盘缓存（已结单照片第二次打开秒开，之前无磁盘缓存每次重新下载原图慢）；
+// 网格用缩略解码（按目标像素解码，快且省内存），全屏预览用原图。
 
 struct PaicarRemoteImage: View {
     let url: URL?
+    var targetPixel: CGFloat = 0   // >0 = 按此最大像素缩略解码（网格用）；0 = 原图解码（预览用）
     @State private var image: UIImage?
 
     private static let cache: URLCache = {
-        URLCache(memoryCapacity: 50*1024*1024, diskCapacity: 0)
+        URLCache(memoryCapacity: 80*1024*1024, diskCapacity: 300*1024*1024)
     }()
 
     var body: some View {
@@ -26,7 +30,7 @@ struct PaicarRemoteImage: View {
     private func load() {
         guard image == nil, let url = url else { return }
         if let cached = Self.cache.cachedResponse(for: URLRequest(url: url)),
-           let img = UIImage(data: cached.data) {
+           let img = decode(cached.data) {
             self.image = img
             return
         }
@@ -34,11 +38,28 @@ struct PaicarRemoteImage: View {
         URLSession.shared.dataTask(with: req) { data, resp, _ in
             if let data = data, let resp = resp {
                 Self.cache.storeCachedResponse(CachedURLResponse(response: resp, data: data), for: req)
-                if let img = UIImage(data: data) {
+                if let img = decode(data) {
                     DispatchQueue.main.async { self.image = img }
                 }
             }
         }.resume()
+    }
+
+    /// 缩略解码：targetPixel>0 时用 ImageIO 按目标像素解码（网格图快+省内存），0 时原图解码
+    private func decode(_ data: Data) -> UIImage? {
+        if targetPixel > 0 {
+            let opts: [CFString: Any] = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceThumbnailMaxPixelSize: targetPixel,
+                kCGImageSourceShouldCacheImmediately: true,
+            ]
+            if let src = CGImageSourceCreateWithData(data as CFData, nil),
+               let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) {
+                return UIImage(cgImage: cg)
+            }
+            return UIImage(data: data)
+        }
+        return UIImage(data: data)
     }
 }
 
@@ -203,7 +224,7 @@ struct PaicarDetailView: View {
                             previewIndex = idx
                             showPreview = true
                         } label: {
-                            PaicarRemoteImage(url: URL(string: PaicarApi.imageUrl(img.imageFile)))
+                            PaicarRemoteImage(url: URL(string: PaicarApi.imageUrl(img.imageFile)), targetPixel: 400)
                                 .frame(height: 72)
                                 .cornerRadius(4)
                         }

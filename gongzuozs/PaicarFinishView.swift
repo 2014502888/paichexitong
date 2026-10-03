@@ -19,7 +19,6 @@ struct PaicarFinishView: View {
     @State private var toastMsg: String?
     @State private var showPhotoPicker = false
     @State private var showCamera = false
-    @State private var submitted = false   // 本次是否点过提交：没点提交就退出 → 删草稿
 
     private let minImages = 4
     private let maxImages = 4
@@ -150,14 +149,6 @@ struct PaicarFinishView: View {
         .onAppear {
             if order == nil { load() }
         }
-        .onDisappear {
-            // 没点过提交就退出（返回/右滑返回）：草稿只是拍照残留，直接删掉，
-            // 不再累积（34065 那种历史残留就是以前拍照后没提交退出留下的）
-            if !submitted {
-                clearDraft()
-                draftImages.removeAll()
-            }
-        }
         .overlay(
             Group {
                 if let msg = toastMsg {
@@ -176,9 +167,7 @@ struct PaicarFinishView: View {
                     if draftImages.count >= maxImages { break }
                     if let data = img.jpegData(compressionQuality: 0.85) {
                         let fileName = "img_\(Int(Date().timeIntervalSince1970 * 1000))_\(draftImages.count).jpg"
-                        try? data.write(to: draftDir().appendingPathComponent(fileName))
                         draftImages.append(DraftImage(fileName: fileName, data: data, uploaded: false))
-                        saveDraft()
                     }
                 }
             }
@@ -188,9 +177,7 @@ struct PaicarFinishView: View {
                 if draftImages.count >= maxImages { return }
                 if let data = image.jpegData(compressionQuality: 0.85) {
                     let fileName = "img_\(Int(Date().timeIntervalSince1970 * 1000))_\(draftImages.count).jpg"
-                    try? data.write(to: draftDir().appendingPathComponent(fileName))
                     draftImages.append(DraftImage(fileName: fileName, data: data, uploaded: false))
-                    saveDraft()
                 }
             }
         }
@@ -246,7 +233,6 @@ struct PaicarFinishView: View {
                     Button {
                         if !d.uploaded {
                             draftImages.remove(at: idx)
-                            saveDraft()
                         }
                     } label: {
                         Text(d.uploaded ? "已传 ✓" : "✕")
@@ -273,19 +259,7 @@ struct PaicarFinishView: View {
                 order = o
                 randomLoadingNum()
                 leaveTime = nowTime()
-                if o.statusCode == "999" {
-                    // 已结单(999)的单：本地草稿只可能是历史残留（上传失败/未结单遗留），
-                    // 不管是谁结的单（别人结/自己结成功），结单后都不该再恢复旧照片，
-                    // 进页面自动清掉本地草稿，避免 10.1 那种失败残留照片混进来
-                    clearDraft()
-                    draftImages.removeAll()
-                } else if !UserDefaults.standard.bool(forKey: submitKey()) {
-                    // 上次没点过提交就退出/杀进程：草稿只是拍照残留，直接清掉，不再累积
-                    clearDraft()
-                    draftImages.removeAll()
-                } else {
-                    loadDraft()
-                }
+                // 草稿机制已删除：照片只存内存，进页面不恢复任何旧照片
             } catch PaicarError.authExpired {
                 // 被顶号：不自动退页，停在原地等全局弹窗（AuthDialog）的 取消/重新登录 决定下一步。
                 // 本页无 loading 状态，全局弹窗负责后续导航，这里什么都不用做。
@@ -340,57 +314,10 @@ struct PaicarFinishView: View {
         return f.string(from: d)
     }
 
-    // MARK: 草稿（UserDefaults + Documents）
-    // 草稿是从安卓版移植的"防丢照片"机制：拍照/选图即存本地，提交成功才清。
-    // 限制：没点过提交就退出（返回/杀进程）→ 直接删草稿，不再累积残留；
-    // 点过提交（上传/结单失败）→ 保留，下次进入可恢复重传。
-
-    private func draftKey() -> String { "paicar_finish_draft_\(orderId)" }
-    private func submitKey() -> String { "paicar_finish_submitted_\(orderId)" }
-    private func draftDir() -> URL {
-        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("finish_drafts/\(orderId)", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
-    }
-
-    private func loadDraft() {
-        guard let raw = UserDefaults.standard.string(forKey: draftKey()),
-              let data = raw.data(using: .utf8),
-              let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return }
-        for o in arr {
-            let fn = (o["f"] as? String) ?? ""
-            let up = (o["u"] as? Bool) ?? false
-            let fileURL = draftDir().appendingPathComponent(fn)
-            if let d = try? Data(contentsOf: fileURL) {
-                draftImages.append(DraftImage(fileName: fn, data: d, uploaded: up))
-            }
-        }
-    }
-
-    private func saveDraft() {
-        var arr: [[String: Any]] = []
-        for d in draftImages {
-            arr.append(["f": d.fileName, "u": d.uploaded])
-            try? d.data.write(to: draftDir().appendingPathComponent(d.fileName))
-        }
-        if let data = try? JSONSerialization.data(withJSONObject: arr) {
-            UserDefaults.standard.set(String(data: data, encoding: .utf8) ?? "", forKey: draftKey())
-        }
-    }
-
-    private func clearDraft() {
-        UserDefaults.standard.removeObject(forKey: draftKey())
-        UserDefaults.standard.removeObject(forKey: submitKey())
-        try? FileManager.default.removeItem(at: draftDir())
-    }
-
     // MARK: 提交
 
     private func submit() {
         if saving { return }
-        submitted = true
-        UserDefaults.standard.set(true, forKey: submitKey())
         if photoOnly {
             submitPhotosOnly()
             return
@@ -414,14 +341,13 @@ struct PaicarFinishView: View {
             do {
                 // 1) 并行上传未传照片（对齐安卓：ret==200 即成功，不再检查 data.code，
                 //    并发上传避免 4 张串行太慢）
-                try await uploadAllDrafts()
+                try await uploadAllImages()
                 // 2) 提交结单
                 let fr = try await PaicarApi.finish(id: orderId, leaveTime: leaveTime,
                                                     finishDesc: finishDesc.trimmingCharacters(in: .whitespacesAndNewlines),
                                                     loadingNum: loadingNum)
                 saving = false
                 if fr.ok {
-                    clearDraft()
                     PaicarFlags.finishedDirty = true
                     PaicarFlags.dispatchDirty = true
                     toastMsg = "结单成功"
@@ -447,9 +373,8 @@ struct PaicarFinishView: View {
         saving = true
         Task {
             do {
-                try await uploadAllDrafts()
+                try await uploadAllImages()
                 saving = false
-                clearDraft()
                 toastMsg = "照片已保存"
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     presentationMode.wrappedValue.dismiss()
@@ -467,7 +392,7 @@ struct PaicarFinishView: View {
     /// 成功判定对齐安卓：服务端 ret==200（parseBody 已校验）即视为成功，不再检查 data.code——
     /// 之前因服务端返回无 code 字段而误判"照片上传失败"，导致传不上去/只传一张。
     /// 并发上传避免 4 张串行等待，显著加快上传速度。
-    private func uploadAllDrafts() async throws {
+    private func uploadAllImages() async throws {
         let pending = draftImages.enumerated().filter { !$0.element.uploaded }.map { (index: $0.offset, item: $0.element) }
         guard !pending.isEmpty else { return }
         var successIdx: [Int] = []
@@ -498,7 +423,6 @@ struct PaicarFinishView: View {
             updated[i] = DraftImage(fileName: d.fileName, data: d.data, uploaded: true)
         }
         draftImages = updated
-        saveDraft()
         if !failed.isEmpty {
             throw PaicarError.api("照片上传失败：\n" + failed.joined(separator: "\n"))
         }
