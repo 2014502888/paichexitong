@@ -260,10 +260,19 @@ struct PaicarFinishView: View {
                 if let o = d["order"] as? [String: Any] { orderMap = o }
                 if orderMap["applyList"] == nil, let l = d["applyList"] as? [Any] { orderMap["applyList"] = l }
                 if orderMap["images"] == nil, let l = d["imageList"] as? [Any] { orderMap["images"] = l }
-                order = PaicarDispatchOrder.fromJson(orderMap)
+                let o = PaicarDispatchOrder.fromJson(orderMap)
+                order = o
                 randomLoadingNum()
                 leaveTime = nowTime()
-                loadDraft()
+                if o.statusCode == "999" {
+                    // 已结单(999)的单：本地草稿只可能是历史残留（上传失败/未结单遗留），
+                    // 不管是谁结的单（别人结/自己结成功），结单后都不该再恢复旧照片，
+                    // 进页面自动清掉本地草稿，避免 10.1 那种失败残留照片混进来
+                    clearDraft()
+                    draftImages.removeAll()
+                } else {
+                    loadDraft()
+                }
             } catch PaicarError.authExpired {
                 // 被顶号：不自动退页，停在原地等全局弹窗（AuthDialog）的 取消/重新登录 决定下一步。
                 // 本页无 loading 状态，全局弹窗负责后续导航，这里什么都不用做。
