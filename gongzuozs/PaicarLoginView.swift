@@ -43,6 +43,7 @@ struct PaicarModuleView: View {
             }
         )
         .onAppear {
+            PaicarApi.moduleActive = true
             // 对齐安卓：手动退出后(justLoggedOut)停在登录页等手动点；
             // 其他情况只要有本地账号密码就强制自动重登（拿新 token），
             // 返回主界面自动退出再进、完全退出APP重开都走这里：
@@ -123,6 +124,14 @@ struct PaicarModuleView: View {
         Task {
             do {
                 let info = try await PaicarApi.login(userNo: u, plainPassword: p)
+                // 登录请求在途期间用户可能已退出派车模块（返回主界面，任何方式）。
+                // 若已退出（moduleActive=false）就不再写回 token，也不进入主页，
+                // 防止残留 token 在主界面触发"账号已在别处登入"弹框。
+                guard PaicarApi.moduleActive else {
+                    autoLogging = false
+                    loggedIn = false
+                    return
+                }
                 PaicarSession.save(token: info.token, userId: info.userId, userNo: u, userPwd: p)
                 PaicarProfileHolder.profile = nil
                 PaicarApi.justLoggedOut = false
@@ -447,6 +456,8 @@ final class AuthDialog {
             Task {
                 do {
                     let info = try await PaicarApi.login(userNo: u, plainPassword: p)
+                    // 登录在途期间若已退出派车模块，不再写回 token，避免主界面残留弹框
+                    guard PaicarApi.moduleActive else { return }
                     PaicarSession.save(token: info.token, userId: info.userId, userNo: u, userPwd: p)
                     PaicarProfileHolder.profile = nil
                     NotificationCenter.default.post(name: .paicarReloadAfterLogin, object: nil)

@@ -36,6 +36,9 @@ enum PaicarApi {
     static var hasLoadedOnce = false
     // 用户主动退出登录后不自动登录
     static var justLoggedOut = false
+    // 派车模块当前是否在前台：退出模块（返回主界面，任何方式）后置 false，
+    // 正在跑的 autoLogin 完成时检查它，不再写回 token，防止残留 token 触发主界面弹框
+    static var moduleActive = false
 
     // MARK: 签名
 

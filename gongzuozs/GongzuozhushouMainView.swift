@@ -59,10 +59,23 @@ struct GongzuozhushouMainView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .paicarBackToRoot)) { _ in
             showPaicar = false
-            // 返回主界面自动退出派车账号：清 token 保留账号密码（PaicarSession.clear 只清 token/userId），
-            // 下次进入派车 onAppear 检测到"未登录+有账号密码"自动重登，与完全退出APP重开行为一致
-            PaicarSession.clear()
-            PaicarProfileHolder.profile = nil
+            // 清理统一在 onChange(of: showPaicar) 处理（覆盖返回键/通知/系统手势 pop 等所有退出路径）
+        }
+        .onChange(of: showPaicar) { newValue in
+            if !newValue {
+                // 不管怎么退出派车模块（返回键 / paicarBackToRoot 通知 / 系统手势 pop），统一清登入态：
+                // 清 token（保留账号密码，下次进入 onAppear 自动重登）+ 注销全局弹框回调
+                // + 重置失效标志 + 模块激活标记置 false。
+                // 否则 token 残留 + onAuthExpired 未注销时，主界面期间在途请求返回 410 会弹
+                // "账号已在别处登入"，且 autoLogin 完成后会把 token 写回。
+                PaicarSession.clear()
+                PaicarProfileHolder.profile = nil
+                PaicarApi.onAuthExpired = nil
+                PaicarApi.relogining = false
+                PaicarApi.authExpiredPending = false
+                PaicarApi.silentAuthExpired = false
+                PaicarApi.moduleActive = false
+            }
         }
     }
 
