@@ -325,10 +325,11 @@ struct PaicarDetailView: View {
                 if let o = d["order"] as? [String: Any] { orderMap = o }
                 if orderMap["applyList"] == nil, let l = d["applyList"] as? [Any] { orderMap["applyList"] = l }
                 if orderMap["images"] == nil, let l = d["imageList"] as? [Any] { orderMap["images"] = l }
-                order = PaicarDispatchOrder.fromJson(orderMap)
+                let o = PaicarDispatchOrder.fromJson(orderMap)
+                order = o
                 // 记录详情页观察到的最新状态：返回列表时与列表旧状态对比，
                 // 不一致则列表静默刷新（外部把待分配改成已分配也能追到）
-                PaicarFlags.detailSeenState[orderId] = order.statusCode
+                PaicarFlags.detailSeenState[orderId] = o.statusCode
                 loading = false
             } catch PaicarError.authExpired {
                 loading = false
