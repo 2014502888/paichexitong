@@ -234,6 +234,22 @@ enum PaicarApi {
         token = info.token
         userId = info.userId
         hasLoadedOnce = false
+        // 登录后自检：服务端可能签发 token 但业务会话未激活（账号被顶/冷却中），
+        // 表现为 profile 返回 400/410 "账号未登录或登录token已过期"。
+        // 直接在此自检一次，自检不过就明确提示，避免
+        // "登录成功→进主页→全部请求被拒→弹顶号框→重登→又拿到假 token"的死循环。
+        // profile 成功时 parseBody 已把 hasLoadedOnce 置 true（会话真有效，后续 410 才该弹框）。
+        do {
+            _ = try await profile()
+        } catch let e as PaicarError {
+            token = ""
+            userId = ""
+            hasLoadedOnce = false
+            if case .authExpired = e {
+                throw PaicarError.api("登录会话未生效（账号未登录或登录token已过期），请稍后重试或更换账号登录")
+            }
+            throw e
+        }
         return info
     }
 

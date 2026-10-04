@@ -146,9 +146,8 @@ struct PaicarModuleView: View {
                 PaicarApi.justLoggedOut = false
                 PaicarApi.silentAuthExpired = false
                 PaicarApi.lastAuthError = ""
-                // 自动重登是"被顶后重建会话"：重登成功即视为已进过系统，
-                // 后续第一个列表请求若仍 410（顶号未解除）要能弹框提示，不能静默空。
-                PaicarApi.hasLoadedOnce = true
+                // hasLoadedOnce 由 login 内部自检（profile 成功）置 true：
+                // 会话真有效才在后续 410 时弹顶号框，避免服务端"假 token"时弹框死循环。
                 autoLogging = false
                 loggedIn = true
             } catch {
@@ -488,10 +487,9 @@ final class AuthDialog {
                     PaicarSession.save(token: info.token, userId: info.userId, userNo: u, userPwd: p)
                     PaicarProfileHolder.profile = nil
                     // 重登成功：复位 justLoggedOut（之前点过取消再重登也能进系统，
-                    // 不会退出重进后永远停在登录页）+ 视为已进过系统（后续 410 能弹框）
+                    // 不会退出重进后永远停在登录页）。hasLoadedOnce 由 login 内部自检处理。
                     PaicarApi.justLoggedOut = false
                     PaicarApi.lastAuthError = ""
-                    PaicarApi.hasLoadedOnce = true
                     NotificationCenter.default.post(name: .paicarReloadAfterLogin, object: nil)
                 } catch {
                     // 服务端拒绝重登（会话被顶/冲突）：记录原因让登录页显示，
