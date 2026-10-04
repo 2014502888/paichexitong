@@ -113,9 +113,68 @@ enum PaicarApi {
         }
     }
 
-    /// POSIX socket 直连实现 HTTP GET/POST（明文），带硬件级收发超时
+    /// POSIX socket 直连实现 HTTP GET/POST（明文），带硬件级收发超时与重定向跟随。
+    /// 服务器会返回 301（原 URLSession 自动跟随，socket 需要自己跟），最多跟 3 次。
     private static func socketRequest(_ req: URLRequest, host: String, timeout: TimeInterval) throws -> Data {
         guard let url = req.url else { throw PaicarError.api("网络错误：无效的请求地址") }
+        let method = req.httpMethod ?? "GET"
+        let body = req.httpBody ?? Data()
+        let ct = req.value(forHTTPHeaderField: "Content-Type")
+        var currentURL = url
+        var currentHost = host
+        var redirectCount = 0
+        while true {
+            let resp = try socketRoundTrip(url: currentURL, host: currentHost, method: method,
+                                           body: body, contentType: ct, timeout: timeout)
+            if ["301", "302", "303", "307", "308"].contains(resp.status) {
+                guard let loc = resp.location else {
+                    throw PaicarError.api("网络错误：HTTP \(resp.statusLine)")
+                }
+                redirectCount += 1
+                guard redirectCount <= 3 else {
+                    throw PaicarError.api("网络错误：重定向次数过多(\(loc))")
+                }
+                if loc.lowercased().hasPrefix("https://") {
+                    throw PaicarError.api("网络错误：服务器要求 HTTPS 连接（暂不支持）")
+                }
+                if loc.lowercased().hasPrefix("http://") {
+                    guard let u = URL(string: loc) else { throw PaicarError.api("网络错误：重定向地址无效(\(loc))") }
+                    currentURL = u
+                    currentHost = u.host ?? currentHost
+                } else if loc.hasPrefix("/") {
+                    var comps = URLComponents(string: currentURL.absoluteString)!
+                    comps.path = loc
+                    comps.query = nil
+                    guard let u = comps.url else { throw PaicarError.api("网络错误：重定向地址无效(\(loc))") }
+                    currentURL = u
+                } else {
+                    // 相对当前目录
+                    var comps = URLComponents(string: currentURL.absoluteString)!
+                    let basePath = (comps.path as NSString).deletingLastPathComponent
+                    comps.path = basePath + "/" + loc
+                    comps.query = nil
+                    guard let u = comps.url else { throw PaicarError.api("网络错误：重定向地址无效(\(loc))") }
+                    currentURL = u
+                }
+                continue
+            }
+            guard resp.status.hasPrefix("2") else {
+                throw PaicarError.api("网络错误：HTTP \(resp.statusLine)")
+            }
+            return resp.body
+        }
+    }
+
+    private struct SocketResp {
+        let status: String
+        let statusLine: String
+        let location: String?
+        let body: Data
+    }
+
+    /// 单次 socket 往返：连接 → 发送 → 接收 → 解析（每次独立 fd，函数内关闭）
+    private static func socketRoundTrip(url: URL, host: String, method: String, body: Data,
+                                        contentType: String?, timeout: TimeInterval) throws -> SocketResp {
         let port = url.port ?? 80
         let path = url.path.isEmpty ? "/" : url.path
         let query = url.query.map { "?\($0)" } ?? ""
@@ -178,7 +237,6 @@ enum PaicarApi {
         }
 
         // 组请求头（GET/POST 通用）
-        let method = req.httpMethod ?? "GET"
         var header = "\(method) \(target) HTTP/1.1\r\n"
         header += "Host: \(host)\r\n"
         header += "Connection: close\r\n"
@@ -188,8 +246,7 @@ enum PaicarApi {
         // Accept-Encoding 声明 identity：socket 不做 gzip 解压，避免服务端返回压缩体乱码
         header += "Accept-Language: zh-CN,zh;q=0.9\r\n"
         header += "Accept-Encoding: identity\r\n"
-        if let ct = req.value(forHTTPHeaderField: "Content-Type") { header += "Content-Type: \(ct)\r\n" }
-        let body = req.httpBody ?? Data()
+        if let ct = contentType { header += "Content-Type: \(ct)\r\n" }
         if method == "POST" { header += "Content-Length: \(body.count)\r\n" }
         header += "\r\n"
 
@@ -222,15 +279,18 @@ enum PaicarApi {
         let head = String(data: data[data.startIndex..<sep.lowerBound], encoding: .utf8) ?? ""
         var bodyData = data[sep.upperBound...]
         let lines = head.components(separatedBy: "\r\n")
-        guard let status = lines.first, status.contains(" 200 ") else {
-            throw PaicarError.api("网络错误：HTTP \(lines.first ?? "未知状态")")
+        guard let statusLine = lines.first else {
+            throw PaicarError.api("网络错误：响应格式错误")
         }
+        let statusCode = statusLine.split(separator: " ").dropFirst().first.map(String.init) ?? ""
+        var location: String?
         var isChunked = false
         for line in lines.dropFirst() {
             let kv = line.split(separator: ":", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
             guard kv.count == 2 else { continue }
             let k = kv[0].lowercased()
-            if k == "content-length", let len = Int(kv[1]) {
+            if k == "location" { location = kv[1] }
+            else if k == "content-length", let len = Int(kv[1]) {
                 if bodyData.count > len {
                     bodyData = bodyData[bodyData.startIndex..<bodyData.index(bodyData.startIndex, offsetBy: len)]
                 }
@@ -239,7 +299,7 @@ enum PaicarApi {
             }
         }
         if isChunked { bodyData = decodeChunked(bodyData) }
-        return Data(bodyData)
+        return SocketResp(status: statusCode, statusLine: statusLine, location: location, body: Data(bodyData))
     }
 
     /// chunked 传输解码
