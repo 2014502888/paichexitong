@@ -63,12 +63,11 @@ struct GongzuozhushouMainView: View {
         }
         .onChange(of: showPaicar) { newValue in
             if !newValue {
-                // 不管怎么退出派车模块（返回键 / paicarBackToRoot 通知 / 系统手势 pop），统一清登入态：
-                // 清 token（保留账号密码，下次进入 onAppear 自动重登）+ 注销全局弹框回调
-                // + 重置失效标志 + 模块激活标记置 false。
-                // 否则 token 残留 + onAuthExpired 未注销时，主界面期间在途请求返回 410 会弹
-                // "账号已在别处登入"，且 autoLogin 完成后会把 token 写回。
-                PaicarSession.clear()
+                // 退出派车模块：不再清 token！保留本地会话供下次进入复用（对齐原版 uni-app），
+                // 否则每次进出模块都要调 login 接口 → 触发服务端"频繁登录"风控
+                // （登录成功但业务接口全 400/410 假 token 锁定，必须换账号才能恢复）。
+                // 主界面期间在途请求 410 误弹"账号已在别处登入"的问题，已由
+                // PaicarApi.parseBody 的 moduleActive 检查 + 注销 onAuthExpired 解决。
                 PaicarProfileHolder.profile = nil
                 PaicarApi.onAuthExpired = nil
                 PaicarApi.relogining = false

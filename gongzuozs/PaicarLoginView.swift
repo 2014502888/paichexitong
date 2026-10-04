@@ -53,22 +53,26 @@ struct PaicarModuleView: View {
         )
         .onAppear {
             PaicarApi.moduleActive = true
-            // 对齐安卓：手动退出后(justLoggedOut)停在登录页等手动点；
-            // 其他情况只要有本地账号密码就强制自动重登（拿新 token），
-            // 返回主界面自动退出再进、完全退出APP重开都走这里：
-            // 杀进程重开时 UserDefaults 残留旧 token，若仅"未登录才重登"会直接进系统
-            // 用旧 token，旧 token 已被顶号/过期时所有请求失败 → "刚打开完全没数据"；
-            // 强制重登始终拿新 token，根除该问题。
+            // 对齐原版 uni-app：优先复用本地 token，只有 token 失效才重登/手动登，
+            // 不再每次进模块都强制调 login —— 频繁调 login 会触发服务端"频繁登录"
+            // 会话风控（登录成功但业务接口全 400/410 假 token 锁定，必须换账号才能恢复，
+            // 用户实测原始 APP 不会这样，正是因为它几乎不调 login）。
+            // 旧 token 残留问题（杀进程重开直接进系统用失效 token → 完全没数据）由
+            // enterWithToken 解决：token 验证失败会自动重登拿新 token，不会裸进系统。
             PaicarSession.load()
             if PaicarApi.justLoggedOut {
                 loggedIn = false
                 autoLogging = false
+            } else if PaicarSession.loggedIn {
+                // 有 token：先复用验证（profile 成功直接进系统，0 次 login 调用）
+                loggedIn = false
+                autoLogging = true
+                enterWithToken()
             } else if !PaicarSession.savedUserNo.isEmpty && !PaicarSession.savedUserPwd.isEmpty {
+                // 无 token 但有账密：自动登入（仅在会话确实失效时才走到这）
                 loggedIn = false
                 autoLogging = true
                 autoLogin()
-            } else if PaicarSession.loggedIn {
-                loggedIn = true
             } else {
                 loggedIn = false
             }
@@ -125,6 +129,37 @@ struct PaicarModuleView: View {
         // 登录后右缘左滑由 PaicarHomeView 自己处理(切回全部列表),不在此dismiss;
         // 未登录时(登录页)右缘左滑退出派车模块
         .modifier(PaicarModuleBackModifier(loggedIn: loggedIn))
+    }
+
+    /// 优先复用本地 token 进系统（对齐原版 uni-app 策略）：
+    /// 直接用现有 token 拉 profile，成功即进主页（不调 login 接口，避开频繁登录风控）；
+    /// 鉴权失败（400/410 token 失效）→ 才自动重登拿新 token；
+    /// 网络等非鉴权错误 → 回登录页并提示原因。
+    private func enterWithToken() {
+        Task {
+            do {
+                _ = try await PaicarProfileHolder.load()
+                // 登录在途期间用户可能已退出派车模块
+                guard PaicarApi.moduleActive else { return }
+                PaicarApi.lastAuthError = ""
+                // profile 成功时 parseBody 已置 hasLoadedOnce=true：会话有效，
+                // 后续真被顶号(410)才会弹顶号框
+                autoLogging = false
+                loggedIn = true
+            } catch {
+                guard PaicarApi.moduleActive else { return }
+                autoLogging = false
+                if let e = error as? PaicarError, case .authExpired = e {
+                    // token 真失效（被顶/过期）：自动重登拿新 token
+                    autoLogin()
+                } else {
+                    // 网络等非鉴权错误：停在登录页 + 显示原因，不循环
+                    PaicarApi.lastAuthError = (error as? PaicarError)?.errorDescription ?? error.localizedDescription
+                    PaicarApi.justLoggedOut = true
+                    loggedIn = false
+                }
+            }
+        }
     }
 
     private func autoLogin() {
