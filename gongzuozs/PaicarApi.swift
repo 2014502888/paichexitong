@@ -142,17 +142,20 @@ enum PaicarApi {
                     currentURL = u
                     currentHost = u.host ?? currentHost
                 } else if loc.hasPrefix("/") {
-                    var comps = URLComponents(string: currentURL.absoluteString)!
-                    comps.path = loc
-                    comps.query = nil
+                    // 根路径相对地址：保留原 query（服务器 Location 常省略 query，丢了会被再 301 回来）
+                    guard var comps = URLComponents(url: currentURL, resolvingAgainstBaseURL: false) else {
+                        throw PaicarError.api("网络错误：重定向地址无效(\(loc))")
+                    }
+                    comps.percentEncodedPath = loc
                     guard let u = comps.url else { throw PaicarError.api("网络错误：重定向地址无效(\(loc))") }
                     currentURL = u
                 } else {
                     // 相对当前目录
-                    var comps = URLComponents(string: currentURL.absoluteString)!
-                    let basePath = (comps.path as NSString).deletingLastPathComponent
-                    comps.path = basePath + "/" + loc
-                    comps.query = nil
+                    guard var comps = URLComponents(url: currentURL, resolvingAgainstBaseURL: false) else {
+                        throw PaicarError.api("网络错误：重定向地址无效(\(loc))")
+                    }
+                    let basePath = (comps.percentEncodedPath as NSString).deletingLastPathComponent
+                    comps.percentEncodedPath = basePath + "/" + loc
                     guard let u = comps.url else { throw PaicarError.api("网络错误：重定向地址无效(\(loc))") }
                     currentURL = u
                 }
@@ -176,8 +179,12 @@ enum PaicarApi {
     private static func socketRoundTrip(url: URL, host: String, method: String, body: Data,
                                         contentType: String?, timeout: TimeInterval) throws -> SocketResp {
         let port = url.port ?? 80
-        let path = url.path.isEmpty ? "/" : url.path
-        let query = url.query.map { "?\($0)" } ?? ""
+        // 关键：URL.path/query 读取时是"已解码"形式（%26 会还原成 &），直接拼进 socket 请求
+        // 会导致 query 里的 & 未转义 → 服务端把参数拆散 → 签名校验失败 → 服务器 301 纠正 → 死循环。
+        // 必须用 percentEncoded 形式（保持原编码）发送。
+        let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let path = (comps?.percentEncodedPath.isEmpty == false ? comps!.percentEncodedPath : "/")
+        let query = comps?.percentEncodedQuery.map { "?\($0)" } ?? ""
         let target = path + query
 
         // 解析主机 IP（IP 直连；非 IP 再走 gethostbyname）
