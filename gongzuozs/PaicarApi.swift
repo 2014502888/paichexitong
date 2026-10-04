@@ -153,6 +153,7 @@ enum PaicarApi {
         let flags = fcntl(fd, F_GETFL, 0)
         fcntl(fd, F_SETFL, flags | O_NONBLOCK)
         var connected = false
+        var lastErrno: Int32 = 0
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             let r = withUnsafePointer(to: &sin) { p in
@@ -162,14 +163,19 @@ enum PaicarApi {
             }
             if r == 0 { connected = true; break }
             let e = errno
+            lastErrno = e
             if e == EINPROGRESS || e == EALREADY {
                 usleep(50_000) // 50ms 轮询
                 continue
             }
+            // 连接已建立：非阻塞 connect 在成功后再次调用会返回 EISCONN
+            if e == EISCONN { connected = true; break }
             break
         }
         fcntl(fd, F_SETFL, flags)
-        guard connected else { throw PaicarError.api("网络错误：无法连接服务器") }
+        guard connected else {
+            throw PaicarError.api("网络错误：无法连接服务器(errno=\(lastErrno))")
+        }
 
         // 组请求头（GET/POST 通用）
         let method = req.httpMethod ?? "GET"
