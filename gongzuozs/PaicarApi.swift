@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 // MARK: - 寄递派车 API 客户端（对应 PaicarApi.kt，PhalApi sign 签名）
 // 签名/参数顺序与安卓、Flutter 完全一致：keys 用「插入顺序」（s→业务参数→token→user_id→timestamp→sign→keys），
@@ -8,16 +9,6 @@ enum PaicarApi {
     static let base = "http://119.91.30.146/a/car/phalapi/public/"
     private static let salt = "*#&FD)#f34"
     private static let authExpiredCode = 410
-
-    // 每个请求使用独立的 ephemeral 会话（iOS 上共享 URLSession 与 Swift 并发并发请求存在已知死锁，
-    // 表现为请求永久挂起且不触发超时；独立会话=独立连接池，彻底绕开该问题）
-    private static func makeSession(timeout: TimeInterval = 15) -> URLSession {
-        let cfg = URLSessionConfiguration.ephemeral
-        cfg.timeoutIntervalForRequest = timeout
-        cfg.timeoutIntervalForResource = timeout + 10
-        cfg.requestCachePolicy = .reloadIgnoringLocalCacheData
-        return URLSession(configuration: cfg)
-    }
 
     // 登录态
     static var token = ""
@@ -93,33 +84,175 @@ enum PaicarApi {
         return r
     }
 
-    /// 网络请求统一入口。
-    /// 用标准 URLSession async/await + 每个请求独立 ephemeral 会话：
-    /// - 独立会话避免共享 URLSession 的并发死锁（原注释记载的问题）；
-    /// - 弃用 NSURLConnection 同步请求（废弃 API，在部分 iOS 版本上会异常挂起，
-    ///   表现为请求永不返回 → 界面超时/转圈；用户实测非 iOS 18 也出现超时）。
-    /// - timeoutIntervalForRequest 15 秒 + asyncAfter 兜底，到点必定返回，不会永久挂起。
+    /// 网络请求统一入口（POSIX socket 直连，不经过 URLSession/NSURLConnection）。
+    /// 为什么用 socket：URLSession（回调版/async 版）与 NSURLConnection 同步请求在
+    /// 用户设备上都会请求挂起永不返回（登录/业务请求无限转圈），iOS 系统网络栈不可靠。
+    /// socket 是 POSIX 层 API，不依赖 iOS 网络栈：
+    /// - IP 直连不走 DNS，HTTP 明文协议自行组包；
+    /// - setsockopt 收发超时 + 非阻塞 connect 轮询 = 硬件级超时，到点必定返回。
     private static func perform(_ req: URLRequest, timeout: TimeInterval = 15, service: String) async throws -> Data {
-        var r = req
-        r.timeoutInterval = timeout
-        let session = makeSession(timeout: timeout)
+        guard let url = req.url, let host = url.host else {
+            throw PaicarError.api("网络错误(\(service))：无效的请求地址")
+        }
         return try await withCheckedThrowingContinuation { cont in
             let box = OnceBox()
-            Task {
+            DispatchQueue.global().async {
                 do {
-                    let (data, _) = try await session.data(for: r)
+                    let data = try socketRequest(req, host: host, timeout: timeout)
                     box.once { cont.resume(returning: data) }
                 } catch let err {
-                    box.once { cont.resume(throwing: PaicarError.api("网络错误(\(service))：\(describe(err))")) }
+                    box.once { cont.resume(throwing: err) }
                 }
             }
-            // 兜底：极端情况仍无返回时强制抛错，保证不永久挂起
-            DispatchQueue.global().asyncAfter(deadline: .now() + timeout + 3) {
+            // 兜底：极端情况（如线程池耗尽）仍强制返回，保证不永久挂起
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout + 6) {
                 box.once {
                     cont.resume(throwing: PaicarError.api("请求超时(\(service))：请求已发出但无响应，token\(token.isEmpty ? "为空" : "正常")、user_id\(userId.isEmpty ? "为空" : userId)。请检查网络后重试"))
                 }
             }
         }
+    }
+
+    /// POSIX socket 直连实现 HTTP GET/POST（明文），带硬件级收发超时
+    private static func socketRequest(_ req: URLRequest, host: String, timeout: TimeInterval) throws -> Data {
+        guard let url = req.url else { throw PaicarError.api("网络错误：无效的请求地址") }
+        let port = url.port ?? 80
+        let path = url.path.isEmpty ? "/" : url.path
+        let query = url.query.map { "?\($0)" } ?? ""
+        let target = path + query
+
+        // 解析主机 IP（IP 直连；非 IP 再走 gethostbyname）
+        var addr: UInt32 = host.withCString { inet_addr($0) }
+        if addr == INADDR_NONE {
+            guard let hp = host.withCString({ gethostbyname($0) }) else {
+                throw PaicarError.api("网络错误：域名解析失败(\(host))")
+            }
+            guard let first = hp.pointee.h_addr_list[0] else {
+                throw PaicarError.api("网络错误：域名解析失败(\(host))")
+            }
+            var a = in_addr()
+            memcpy(&a, first, MemoryLayout<in_addr>.size)
+            addr = a.s_addr
+        }
+
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else { throw PaicarError.api("网络错误：创建连接失败") }
+        defer { close(fd) }
+
+        // 收发超时：硬件级，到点必定返回
+        var tv = timeval(tv_sec: Int(timeout), tv_usec: 0)
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+
+        var sin = sockaddr_in()
+        sin.sin_family = sa_family_t(AF_INET)
+        sin.sin_port = in_port_t(port).bigEndian
+        sin.sin_addr.s_addr = addr
+
+        // 非阻塞 connect + 轮询，避免 connect 永久阻塞
+        let flags = fcntl(fd, F_GETFL, 0)
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK)
+        var connected = false
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let r = withUnsafePointer(to: &sin) { p in
+                p.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    connect(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                }
+            }
+            if r == 0 { connected = true; break }
+            let e = errno
+            if e == EINPROGRESS || e == EALREADY {
+                usleep(50_000) // 50ms 轮询
+                continue
+            }
+            break
+        }
+        fcntl(fd, F_SETFL, flags)
+        guard connected else { throw PaicarError.api("网络错误：无法连接服务器") }
+
+        // 组请求头（GET/POST 通用）
+        let method = req.httpMethod ?? "GET"
+        var header = "\(method) \(target) HTTP/1.1\r\n"
+        header += "Host: \(host)\r\n"
+        header += "Connection: close\r\n"
+        header += "User-Agent: gongzuozhushou/1.0\r\n"
+        header += "Accept: */*\r\n"
+        // 补标准请求头，使 header 指纹与常规客户端一致（服务端不可区分）；
+        // Accept-Encoding 声明 identity：socket 不做 gzip 解压，避免服务端返回压缩体乱码
+        header += "Accept-Language: zh-CN,zh;q=0.9\r\n"
+        header += "Accept-Encoding: identity\r\n"
+        if let ct = req.value(forHTTPHeaderField: "Content-Type") { header += "Content-Type: \(ct)\r\n" }
+        let body = req.httpBody ?? Data()
+        if method == "POST" { header += "Content-Length: \(body.count)\r\n" }
+        header += "\r\n"
+
+        var requestBytes = Data(header.utf8)
+        requestBytes.append(body)
+        let bytes = [UInt8](requestBytes)
+        var sent = 0
+        while sent < bytes.count {
+            let n = bytes.withUnsafeBufferPointer { buf in
+                send(fd, buf.baseAddress! + sent, bytes.count - sent, 0)
+            }
+            if n <= 0 { throw PaicarError.api("网络错误：发送请求失败") }
+            sent += n
+        }
+
+        // 接收响应（Connection: close，读到对端关闭为止）
+        var data = Data()
+        var buf = [UInt8](repeating: 0, count: 8192)
+        while true {
+            let n = buf.withUnsafeMutableBytes { recv(fd, $0.baseAddress, $0.count, 0) }
+            if n <= 0 { break }
+            data.append(contentsOf: buf[0..<n])
+        }
+        guard !data.isEmpty else { throw PaicarError.api("网络错误：服务器无响应") }
+
+        // 解析 HTTP：拆 header/body
+        guard let sep = data.firstRange(of: Data("\r\n\r\n".utf8)) else {
+            throw PaicarError.api("网络错误：响应格式错误")
+        }
+        let head = String(data: data[data.startIndex..<sep.lowerBound], encoding: .utf8) ?? ""
+        var bodyData = data[sep.upperBound...]
+        let lines = head.components(separatedBy: "\r\n")
+        guard let status = lines.first, status.contains(" 200 ") else {
+            throw PaicarError.api("网络错误：HTTP \(lines.first ?? "未知状态")")
+        }
+        var isChunked = false
+        for line in lines.dropFirst() {
+            let kv = line.split(separator: ":", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
+            guard kv.count == 2 else { continue }
+            let k = kv[0].lowercased()
+            if k == "content-length", let len = Int(kv[1]) {
+                if bodyData.count > len {
+                    bodyData = bodyData[bodyData.startIndex..<bodyData.index(bodyData.startIndex, offsetBy: len)]
+                }
+            } else if k == "transfer-encoding" && kv[1].lowercased().contains("chunked") {
+                isChunked = true
+            }
+        }
+        if isChunked { bodyData = decodeChunked(bodyData) }
+        return Data(bodyData)
+    }
+
+    /// chunked 传输解码
+    private static func decodeChunked(_ data: Data) -> Data {
+        var out = Data()
+        var idx = data.startIndex
+        while idx < data.endIndex {
+            guard let crlf = data[idx..<data.endIndex].firstIndex(of: 13) else { break }
+            let sizeLine = String(data: data[idx..<crlf], encoding: .utf8) ?? ""
+            let hex = sizeLine.split(separator: ";").first.map(String.init) ?? ""
+            guard let size = Int(hex, radix: 16) else { break }
+            if size == 0 { break }
+            let bodyStart = data.index(crlf, offsetBy: 2)
+            guard bodyStart < data.endIndex else { break }
+            let bodyEnd = data.index(bodyStart, offsetBy: size, limitedBy: data.endIndex) ?? data.endIndex
+            out.append(contentsOf: data[bodyStart..<bodyEnd])
+            idx = data.index(bodyEnd, offsetBy: 2, limitedBy: data.endIndex) ?? data.endIndex
+        }
+        return out
     }
 
     /// 防重复 resume 的闭包盒（URLSession/同步请求与兜底定时器可能竞争）
@@ -131,20 +264,6 @@ enum PaicarApi {
             if !done { done = true; op() }
             lock.unlock()
         }
-    }
-
-    /// 网络错误转中文描述（便于界面直接展示可读信息）
-    private static func describe(_ err: Error) -> String {
-        if let u = err as? URLError {
-            switch u.code {
-            case .timedOut: return "请求超时，请检查网络后重试"
-            case .notConnectedToInternet: return "网络不可用，请检查连接"
-            case .cannotConnectToHost, .cannotFindHost: return "无法连接服务器，请检查网络"
-            case .dnsLookupFailed: return "域名解析失败"
-            default: return u.localizedDescription
-            }
-        }
-        return err.localizedDescription
     }
 
     static func get(_ service: String, params: [(String, String)]) async throws -> PaicarResult {
