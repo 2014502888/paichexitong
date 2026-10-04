@@ -53,30 +53,24 @@ struct PaicarModuleView: View {
         )
         .onAppear {
             PaicarApi.moduleActive = true
-            // 对齐原版 uni-app：优先复用本地 token，只有 token 失效才重登/手动登，
-            // 不再每次进模块都强制调 login —— 频繁调 login 会触发服务端"频繁登录"
-            // 会话风控（登录成功但业务接口全 400/410 假 token 锁定，必须换账号才能恢复，
-            // 用户实测原始 APP 不会这样，正是因为它几乎不调 login）。
-            // 旧 token 残留问题（杀进程重开直接进系统用失效 token → 完全没数据）由
-            // enterWithToken 解决：token 验证失败会自动重登拿新 token，不会裸进系统。
+            // 完全对齐原版 uni-app 登入逻辑：不自动登入！
+            // 原版 index 页：有 login_token → 复用 token 拉 profile → 成功进主页 / 失败回登录页；
+            // 无 token → 登录页手动登录。登录接口只在用户手动点"登录"时调用，
+            // 彻底避免"每次进模块自动调 login → 服务端频繁登录风控 → 假 token 锁定"。
             PaicarSession.load()
             if PaicarApi.justLoggedOut {
+                // 用户主动选择不重登：停在登录页等手动点
                 loggedIn = false
                 autoLogging = false
             } else if PaicarSession.loggedIn {
-                // 有 token：先复用验证（profile 成功直接进系统，0 次 login 调用）
+                // 有 token：复用验证（profile），成功直接进系统，0 次 login 调用
                 loggedIn = false
                 autoLogging = true
-                startLoginWatchdog()
                 enterWithToken()
-            } else if !PaicarSession.savedUserNo.isEmpty && !PaicarSession.savedUserPwd.isEmpty {
-                // 无 token 但有账密：自动登入（仅在会话确实失效时才走到这）
-                loggedIn = false
-                autoLogging = true
-                startLoginWatchdog()
-                autoLogin()
             } else {
+                // 无 token：登录页手动登录（即使本地有账密也不自动登入，对齐原版）
                 loggedIn = false
+                autoLogging = false
             }
             PaicarApi.onAuthExpired = {
                 DispatchQueue.main.async {
@@ -133,29 +127,15 @@ struct PaicarModuleView: View {
         .modifier(PaicarModuleBackModifier(loggedIn: loggedIn))
     }
 
-    /// 转圈看门狗：自动登录/验证请求若 12 秒内还没回来（网络层挂起兜底），
-    /// 强制退出转圈页回登录页并提示原因，保证"卡在正在登录"永不发生。
-    private func startLoginWatchdog() {
-        Task {
-            try? await Task.sleep(nanoseconds: 12_000_000_000)
-            if autoLogging {
-                autoLogging = false
-                loggedIn = false
-                PaicarApi.lastAuthError = "登录请求超时，请检查网络后重试"
-                PaicarApi.justLoggedOut = true
-            }
-        }
-    }
-
-    /// 优先复用本地 token 进系统（对齐原版 uni-app 策略）：
-    /// 直接用现有 token 拉 profile，成功即进主页（不调 login 接口，避开频繁登录风控）；
-    /// 鉴权失败（400/410 token 失效）→ 才自动重登拿新 token；
-    /// 网络等非鉴权错误 → 回登录页并提示原因。
+    /// 复用本地 token 进系统（对齐原版 uni-app 行为）：
+    /// 直接用现有 token 拉 profile，成功即进主页（0 次 login 调用）；
+    /// 鉴权失败（400/410 token 失效）→ 清掉失效 token 回登录页手动登录（不自动重登）；
+    /// 网络等非鉴权错误 → 保留 token 回登录页并提示，下次进模块自动重试。
     private func enterWithToken() {
         Task {
             do {
                 _ = try await PaicarProfileHolder.load()
-                // 登录在途期间用户可能已退出派车模块
+                // 验证期间用户可能已退出派车模块
                 guard PaicarApi.moduleActive else { return }
                 PaicarApi.lastAuthError = ""
                 // profile 成功时 parseBody 已置 hasLoadedOnce=true：会话有效，
@@ -166,50 +146,14 @@ struct PaicarModuleView: View {
                 guard PaicarApi.moduleActive else { return }
                 autoLogging = false
                 if let e = error as? PaicarError, case .authExpired = e {
-                    // token 真失效（被顶/过期）：自动重登拿新 token
-                    autoLogin()
+                    // token 真失效（被顶/过期）：对齐原版清掉失效会话回登录页，
+                    // 不清账密，登录页预填后手动点登录
+                    PaicarApi.lastAuthError = "登录会话已过期，请重新登录"
+                    PaicarSession.clear()
                 } else {
-                    // 网络等非鉴权错误：停在登录页 + 显示原因，不循环
+                    // 网络等非鉴权错误：保留 token，提示后回登录页，下次进模块自动重试
                     PaicarApi.lastAuthError = (error as? PaicarError)?.errorDescription ?? error.localizedDescription
-                    PaicarApi.justLoggedOut = true
-                    loggedIn = false
                 }
-            }
-        }
-    }
-
-    private func autoLogin() {
-        let u = PaicarSession.savedUserNo
-        let p = PaicarSession.savedUserPwd
-        // 竞态保护：看门狗已把用户带回登录页（justLoggedOut=true）或模块已退出时，
-        // 迟到的自动登录不再执行，避免抢掉登录页/重复登录。
-        guard PaicarApi.moduleActive, !PaicarApi.justLoggedOut else { return }
-        Task {
-            do {
-                let info = try await PaicarApi.login(userNo: u, plainPassword: p)
-                // 登录请求在途期间用户可能已退出派车模块（返回主界面，任何方式）。
-                // 若已退出（moduleActive=false）就不再写回 token，也不进入主页，
-                // 防止残留 token 在主界面触发"账号已在别处登入"弹框。
-                guard PaicarApi.moduleActive else {
-                    autoLogging = false
-                    loggedIn = false
-                    return
-                }
-                PaicarSession.save(token: info.token, userId: info.userId, userNo: u, userPwd: p)
-                PaicarProfileHolder.profile = nil
-                PaicarApi.justLoggedOut = false
-                PaicarApi.silentAuthExpired = false
-                PaicarApi.lastAuthError = ""
-                // hasLoadedOnce 由 login 内部自检（profile 成功）置 true：
-                // 会话真有效才在后续 410 时弹顶号框，避免服务端"假 token"时弹框死循环。
-                autoLogging = false
-                loggedIn = true
-            } catch {
-                // 自动登录失败：把原因记下来让登录页显示，并置 justLoggedOut 停掉
-                // "每次进模块强制重登→失败→白屏→登录页"的死循环，停在登录页等手动处理。
-                PaicarApi.lastAuthError = (error as? PaicarError)?.errorDescription ?? error.localizedDescription
-                PaicarApi.justLoggedOut = true
-                autoLogging = false
                 loggedIn = false
             }
         }

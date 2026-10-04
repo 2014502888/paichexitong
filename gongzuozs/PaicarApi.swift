@@ -94,49 +94,27 @@ enum PaicarApi {
     }
 
     /// 网络请求统一入口。
-    /// 为什么不用 URLSession async/await 或 NSURLConnection 同步：
-    /// iOS 18 上 URLSession 请求可能永久挂起且 timeoutInterval、cancel、invalidateAndCancel
-    /// 均不触发 completion（回调版与 async 版都存在）；NSURLConnection.sendSynchronousRequest
-    /// 在部分 iOS 版本上同样会挂死。两者都会导致登录/业务请求永不返回 → 界面无限转圈。
-    /// 这里用「独立 ephemeral 会话 + 回调版 dataTask + DispatchSemaphore 硬超时」：
-    /// sem.wait(timeout:) 是绝对超时，不依赖网络栈，无论请求是否挂起，到点必定返回，
-    /// 彻底杜绝"永久转圈/卡死"。
+    /// 用标准 URLSession async/await + 每个请求独立 ephemeral 会话：
+    /// - 独立会话避免共享 URLSession 的并发死锁（原注释记载的问题）；
+    /// - 弃用 NSURLConnection 同步请求（废弃 API，在部分 iOS 版本上会异常挂起，
+    ///   表现为请求永不返回 → 界面超时/转圈；用户实测非 iOS 18 也出现超时）。
+    /// - timeoutIntervalForRequest 15 秒 + asyncAfter 兜底，到点必定返回，不会永久挂起。
     private static func perform(_ req: URLRequest, timeout: TimeInterval = 15, service: String) async throws -> Data {
         var r = req
         r.timeoutInterval = timeout
+        let session = makeSession(timeout: timeout)
         return try await withCheckedThrowingContinuation { cont in
             let box = OnceBox()
-            DispatchQueue.global().async {
-                let sem = DispatchSemaphore(value: 0)
-                var data: Data?
-                var err: Error?
-                let cfg = URLSessionConfiguration.ephemeral
-                cfg.timeoutIntervalForRequest = timeout
-                cfg.timeoutIntervalForResource = timeout + 5
-                cfg.requestCachePolicy = .reloadIgnoringLocalCacheData
-                let session = URLSession(configuration: cfg)
-                let task = session.dataTask(with: r) { d, _, e in
-                    data = d
-                    err = e
-                    sem.signal()
-                }
-                task.resume()
-                // 硬超时：无论 completion 是否触发，到点必定继续
-                _ = sem.wait(timeout: .now() + timeout + 2)
-                task.cancel()
-                session.invalidateAndCancel()
-                if let d = data, err == nil {
-                    box.once { cont.resume(returning: d) }
-                } else if let d = data, !d.isEmpty {
-                    // 有数据但有错误(如部分错误)：数据优先，交上层解析
-                    box.once { cont.resume(returning: d) }
-                } else {
-                    let desc = (err as? URLError).map { describe($0) } ?? (err?.localizedDescription ?? "请求超时")
-                    box.once { cont.resume(throwing: PaicarError.api("网络错误(\(service))：\(desc)")) }
+            Task {
+                do {
+                    let (data, _) = try await session.data(from: r)
+                    box.once { cont.resume(returning: data) }
+                } catch let err {
+                    box.once { cont.resume(throwing: PaicarError.api("网络错误(\(service))：\(describe(err))")) }
                 }
             }
-            // 兜底：极端情况（如线程池耗尽导致上面的 block 延迟执行）仍强制返回
-            DispatchQueue.global().asyncAfter(deadline: .now() + timeout + 8) {
+            // 兜底：极端情况仍无返回时强制抛错，保证不永久挂起
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout + 3) {
                 box.once {
                     cont.resume(throwing: PaicarError.api("请求超时(\(service))：请求已发出但无响应，token\(token.isEmpty ? "为空" : "正常")、user_id\(userId.isEmpty ? "为空" : userId)。请检查网络后重试"))
                 }
