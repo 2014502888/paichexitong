@@ -39,6 +39,8 @@ enum PaicarApi {
     // 派车模块当前是否在前台：退出模块（返回主界面，任何方式）后置 false，
     // 正在跑的 autoLogin 完成时检查它，不再写回 token，防止残留 token 触发主界面弹框
     static var moduleActive = false
+    // 最近一次自动/重新登录失败的原因（登录页 onAppear 读取显示一次后清空）
+    static var lastAuthError = ""
 
     // MARK: 签名
 
@@ -82,9 +84,10 @@ enum PaicarApi {
             hasLoadedOnce = true
         }
         if service != "App.User_user.login" && (r.ret == authExpiredCode || isAuth400) {
-            // 只有真有登录态、且已经成功进过系统(hasLoadedOnce)才弹顶号框;
-            // 首次登录/加载期的空token竞态400不弹, 避免刚点登录就误弹。
-            if !silentAuthExpired && !token.isEmpty && hasLoadedOnce { onAuthExpired?() }
+            // 只有真有登录态、且已经成功进过系统(hasLoadedOnce)、且派车模块还在前台
+            // (moduleActive) 才弹顶号框；首次登录/加载期的空token竞态400不弹, 避免刚点登录就误弹；
+            // 模块已退出(主界面期间在途请求返回410)也不弹, 避免在主界面凭空弹"账号已在别处登入"。
+            if !silentAuthExpired && !token.isEmpty && hasLoadedOnce && moduleActive { onAuthExpired?() }
             throw PaicarError.authExpired
         }
         return r
@@ -207,7 +210,7 @@ enum PaicarApi {
         // 手动检查登录失效:上传接口返回格式可能不同,只检查410
         let ret = (obj["ret"] as? NSNumber)?.intValue ?? 200
         if ret == 410 {
-            if !silentAuthExpired && !token.isEmpty && hasLoadedOnce { onAuthExpired?() }
+            if !silentAuthExpired && !token.isEmpty && hasLoadedOnce && moduleActive { onAuthExpired?() }
             throw PaicarError.authExpired
         }
         return obj

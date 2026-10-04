@@ -28,7 +28,16 @@ struct PaicarModuleView: View {
             if loggedIn {
                 PaicarHomeView()
             } else if autoLogging {
-                Color.clear
+                // 对齐安卓自动登录转圈页：不再白屏（Color.clear），登录中显示转圈+文字，
+                // 避免 login 慢/失败时用户看到一片空白误以为"进不去/卡死"。
+                VStack(spacing: 14) {
+                    ProgressView().scaleEffect(1.4)
+                    Text("正在登录…")
+                        .font(.system(size: 15))
+                        .foregroundColor(isDark ? .white : .black)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : .white)
             } else {
                 PaicarLoginView()
             }
@@ -136,9 +145,17 @@ struct PaicarModuleView: View {
                 PaicarProfileHolder.profile = nil
                 PaicarApi.justLoggedOut = false
                 PaicarApi.silentAuthExpired = false
+                PaicarApi.lastAuthError = ""
+                // 自动重登是"被顶后重建会话"：重登成功即视为已进过系统，
+                // 后续第一个列表请求若仍 410（顶号未解除）要能弹框提示，不能静默空。
+                PaicarApi.hasLoadedOnce = true
                 autoLogging = false
                 loggedIn = true
             } catch {
+                // 自动登录失败：把原因记下来让登录页显示，并置 justLoggedOut 停掉
+                // "每次进模块强制重登→失败→白屏→登录页"的死循环，停在登录页等手动处理。
+                PaicarApi.lastAuthError = (error as? PaicarError)?.errorDescription ?? error.localizedDescription
+                PaicarApi.justLoggedOut = true
                 autoLogging = false
                 loggedIn = false
             }
@@ -271,6 +288,12 @@ struct PaicarLoginView: View {
             if !saved.isEmpty { userNo = saved }
             let savedPwd = PaicarSession.savedUserPwd
             if !savedPwd.isEmpty { pwd = savedPwd }
+            // 自动/重新登录失败的原因在这里显示一次（读完即清），
+            // 用户能明确看到"为什么没自动登进去"，而不是白屏/静默。
+            if !PaicarApi.lastAuthError.isEmpty {
+                toast = PaicarApi.lastAuthError
+                PaicarApi.lastAuthError = ""
+            }
         }
     }
 
@@ -444,6 +467,7 @@ final class AuthDialog {
             // 用户主动选择不重登：置 justLoggedOut，防止 alert 关闭后 SwiftUI 触发
             // 模块 onAppear 重跑又强制 autoLogin → autoLogging 空白页死循环
             PaicarApi.justLoggedOut = true
+            PaicarApi.lastAuthError = ""
             PaicarSession.clear()
             PaicarProfileHolder.profile = nil
             NotificationCenter.default.post(name: .paicarForceLogin, object: nil)
@@ -463,10 +487,17 @@ final class AuthDialog {
                     guard PaicarApi.moduleActive else { return }
                     PaicarSession.save(token: info.token, userId: info.userId, userNo: u, userPwd: p)
                     PaicarProfileHolder.profile = nil
+                    // 重登成功：复位 justLoggedOut（之前点过取消再重登也能进系统，
+                    // 不会退出重进后永远停在登录页）+ 视为已进过系统（后续 410 能弹框）
+                    PaicarApi.justLoggedOut = false
+                    PaicarApi.lastAuthError = ""
+                    PaicarApi.hasLoadedOnce = true
                     NotificationCenter.default.post(name: .paicarReloadAfterLogin, object: nil)
                 } catch {
-                    // 服务端拒绝重登（会话被顶/冲突）：也置 justLoggedOut，
-                    // 停在登录页让用户手动处理（换账号/稍后重试），不再自动重登死循环
+                    // 服务端拒绝重登（会话被顶/冲突）：记录原因让登录页显示，
+                    // 并置 justLoggedOut 停在登录页让用户手动处理（换账号/稍后重试），
+                    // 不再自动重登死循环
+                    PaicarApi.lastAuthError = (error as? PaicarError)?.errorDescription ?? error.localizedDescription
                     PaicarApi.justLoggedOut = true
                     PaicarSession.clear()
                     NotificationCenter.default.post(name: .paicarForceLogin, object: nil)
