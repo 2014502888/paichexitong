@@ -67,11 +67,13 @@ struct PaicarModuleView: View {
                 // 有 token：先复用验证（profile 成功直接进系统，0 次 login 调用）
                 loggedIn = false
                 autoLogging = true
+                startLoginWatchdog()
                 enterWithToken()
             } else if !PaicarSession.savedUserNo.isEmpty && !PaicarSession.savedUserPwd.isEmpty {
                 // 无 token 但有账密：自动登入（仅在会话确实失效时才走到这）
                 loggedIn = false
                 autoLogging = true
+                startLoginWatchdog()
                 autoLogin()
             } else {
                 loggedIn = false
@@ -131,6 +133,20 @@ struct PaicarModuleView: View {
         .modifier(PaicarModuleBackModifier(loggedIn: loggedIn))
     }
 
+    /// 转圈看门狗：自动登录/验证请求若 12 秒内还没回来（网络层挂起兜底），
+    /// 强制退出转圈页回登录页并提示原因，保证"卡在正在登录"永不发生。
+    private func startLoginWatchdog() {
+        Task {
+            try? await Task.sleep(nanoseconds: 12_000_000_000)
+            if autoLogging {
+                autoLogging = false
+                loggedIn = false
+                PaicarApi.lastAuthError = "登录请求超时，请检查网络后重试"
+                PaicarApi.justLoggedOut = true
+            }
+        }
+    }
+
     /// 优先复用本地 token 进系统（对齐原版 uni-app 策略）：
     /// 直接用现有 token 拉 profile，成功即进主页（不调 login 接口，避开频繁登录风控）；
     /// 鉴权失败（400/410 token 失效）→ 才自动重登拿新 token；
@@ -165,6 +181,9 @@ struct PaicarModuleView: View {
     private func autoLogin() {
         let u = PaicarSession.savedUserNo
         let p = PaicarSession.savedUserPwd
+        // 竞态保护：看门狗已把用户带回登录页（justLoggedOut=true）或模块已退出时，
+        // 迟到的自动登录不再执行，避免抢掉登录页/重复登录。
+        guard PaicarApi.moduleActive, !PaicarApi.justLoggedOut else { return }
         Task {
             do {
                 let info = try await PaicarApi.login(userNo: u, plainPassword: p)
