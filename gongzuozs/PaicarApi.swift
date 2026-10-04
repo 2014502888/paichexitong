@@ -107,7 +107,7 @@ enum PaicarApi {
             let box = OnceBox()
             Task {
                 do {
-                    let (data, _) = try await session.data(from: r)
+                    let (data, _) = try await session.data(for: r)
                     box.once { cont.resume(returning: data) }
                 } catch let err {
                     box.once { cont.resume(throwing: PaicarError.api("网络错误(\(service))：\(describe(err))")) }
