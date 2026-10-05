@@ -679,13 +679,33 @@ enum PaicarApi {
         return id
     }
 
-    /// 一键撤回并删除：001 先撤回成 000 再删；000 直接删
-    static func quickRecall(id: String) async throws {
+    /// 一键撤回并删除：仅 000 直接删、001 先撤回成 000 再删；002/003/004/999 或已不存在 一律跳过（不删）。返回 true=已删除 / false=跳过
+    static func quickRecall(id: String) async throws -> Bool {
+        // 1) 先查当前状态，避免误删已进入派车/结单流程的单
         silentAuthExpired = true
-        try? await post("App.DispatchCar_applyOrder.recall", params: [("id", id)])
+        let detail: [String: Any]
+        do {
+            detail = try await applyOrderDetail(id: id)
+        } catch PaicarError.authExpired {
+            silentAuthExpired = false
+            throw PaicarError.authExpired   // 登录失效：上抛由调用方提示重新登录
+        } catch {
+            detail = [:]
+        }
+        let st = (detail["statusCode"] as? String) ?? ""
+        guard st == "000" || st == "001" else {
+            silentAuthExpired = false
+            return false
+        }
+        // 2) 001 先撤回成 000（失败忽略，由删除接口兜底）
+        if st == "001" {
+            try? await post("App.DispatchCar_applyOrder.recall", params: [("id", id)])
+        }
+        // 3) 删除
         let r2 = try await post("App.DispatchCar_applyOrder.delete", params: [("id", id)])
         silentAuthExpired = false
         if !r2.ok { throw PaicarError.api(r2.msg.isEmpty ? "删除失败" : r2.msg) }
+        return true
     }
 
     private static let quickIdsKey = "paicar_quick_ids"

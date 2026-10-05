@@ -724,16 +724,20 @@ struct PaicarDispatchListView: View {
 
     private func doQuickRecall(ids: [String]) {
         Task {
+            var ok = 0
+            var skipped = 0
             var fail = 0
             var authFailed = false
+            var remaining: [String] = []
             for id in ids {
                 do {
-                    try await PaicarApi.quickRecall(id: id)
+                    if try await PaicarApi.quickRecall(id: id) { ok += 1 } else { skipped += 1 }
                 } catch PaicarError.authExpired {
                     authFailed = true
                     break
                 } catch {
                     fail += 1
+                    remaining.append(id)
                 }
             }
             if authFailed {
@@ -741,12 +745,13 @@ struct PaicarDispatchListView: View {
                 load()
                 return
             }
-            PaicarApi.saveQuickIds([])
-            if fail == 0 {
-                toastMsg = "已全部撤回并删除"
-            } else {
-                toastMsg = "已处理（\(fail) 张失败）"
-            }
+            // 已成功删除、已进入流程被跳过的都不再是可撤回申请单 → 移出本地记录；失败保留供重试
+            PaicarApi.saveQuickIds(remaining)
+            var parts: [String] = []
+            if ok > 0 { parts.append("已撤回删除 \(ok) 张") }
+            if skipped > 0 { parts.append("\(skipped) 张已进入流程，跳过") }
+            if fail > 0 { parts.append("\(fail) 张失败") }
+            toastMsg = parts.isEmpty ? "没有可撤回的申请单" : parts.joined(separator: "，")
             load()
         }
     }
