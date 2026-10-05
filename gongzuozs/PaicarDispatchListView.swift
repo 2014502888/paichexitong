@@ -74,7 +74,6 @@ struct PaicarDispatchListView: View {
     @State private var loadingFinished = false
     @State private var hasMoreDispatch = true
     @State private var hasMoreFinished = true
-    @State private var emptyPages = 0
     @State private var dispatchPage = 0
     @State private var finishedPage = 0
     @State private var exhausted = false
@@ -82,7 +81,6 @@ struct PaicarDispatchListView: View {
     // 登录失效标记：error 为"登录已失效"时按钮显示"登入"（换 token 自动登入），否则显示"重试"
     @State private var authError = false
     @State private var finishedLoadedOnce = false
-    @State private var finishedMoreCooldown = false
     @State private var finishedCursor = ""   // 当前已显示到哪一天（yyyy-MM-dd）
     @State private var pushApplyId: String?
     @State private var pushDispatchId: String?
@@ -96,16 +94,12 @@ struct PaicarDispatchListView: View {
     @State private var showDatePicker = false
     @State private var selectedDate = Date()
     @State private var filterFinishedDay: String? = nil
-    @State private var contentHeight: CGFloat = 0
-    @State private var viewportHeight: CGFloat = 0
 
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
     private var pageBg: Color { isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : .white }
     private var cardBg: Color { isDark ? Color(red: 0.12, green: 0.12, blue: 0.12) : .white }
     private var blue: Color { Color(red: 0.08, green: 0.28, blue: 0.75) }
-
-    private var canScrollDown: Bool { contentHeight > viewportHeight + 8 }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -158,9 +152,8 @@ struct PaicarDispatchListView: View {
                 Spacer()
             } else {
                 ScrollView {
-                    ScrollViewReader { _ in
-                        VStack(spacing: 0) {
-                            ForEach(renderedItems, id: \.self) { item in
+                    VStack(spacing: 0) {
+                        ForEach(renderedItems, id: \.self) { item in
                                 switch item {
                                 case .apply(let o):
                                     Button { pushApplyId = o.id } label: { applyCard(o) }
@@ -177,25 +170,7 @@ struct PaicarDispatchListView: View {
                                     moreHint(isLast: isLast)
                                 }
                             }
-                            // 底部哨兵：滚动到底触发加载（配合冷却实现一次手势最多加载一天）
-                            GeometryReader { geo in
-                                Color.clear
-                                    .onAppear {
-                                        viewportHeight = geo.size.height
-                                        onReachBottom()
-                                    }
-                            }
-                            .frame(height: 1)
                         }
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear.preference(key: PaicarContentHeightKey.self, value: geo.size.height)
-                            }
-                        )
-                    }
-                }
-                .onPreferenceChange(PaicarContentHeightKey.self) { h in
-                    contentHeight = h
                 }
             }
         }
@@ -383,10 +358,13 @@ struct PaicarDispatchListView: View {
                 applies = rawApplies.map { PaicarApplyOrder.fromJson($0) }
                     .filter { $0.statusCode == "000" || $0.statusCode == "001" }
                     .sorted { $0.statusCode < $1.statusCode }
-                dispatches = rawDispatch.map { PaicarDispatchOrder.fromJson($0) }
+                let filteredDispatch = rawDispatch.map { PaicarDispatchOrder.fromJson($0) }
                     .filter { $0.statusCode == "003" || $0.statusCode == "004" }
                     .sorted { $0.statusCode < $1.statusCode }
-                hasMoreDispatch = rawDispatch.count >= 20
+                dispatches = filteredDispatch
+                // 用过滤后条数判断是否还有下一页：接口原始返回满 20 条但过滤后
+                // 不足 20 时不再误判"还有更多"，避免显示无效的"下滑查看更多"
+                hasMoreDispatch = filteredDispatch.count >= 20
                 loading = false
             } catch PaicarError.authExpired {
                 loading = false
@@ -412,13 +390,9 @@ struct PaicarDispatchListView: View {
                 let more = raw.map { PaicarDispatchOrder.fromJson($0) }
                     .filter { $0.statusCode == "003" || $0.statusCode == "004" }
                     .sorted { $0.statusCode < $1.statusCode }
-                if raw.count < 20 { hasMoreDispatch = false }
-                if more.isEmpty {
-                    emptyPages += 1
-                    if emptyPages >= 3 { hasMoreDispatch = false }
-                } else {
-                    emptyPages = 0
-                }
+                // 用过滤后条数判断：本页过滤后不足 20 即到底（与 load() 口径一致；
+                // 空页时 more.count=0<20 同样会置 false，无需额外空页计数兜底）
+                if more.count < 20 { hasMoreDispatch = false }
                 dispatches.append(contentsOf: more)
                 loadingMore = false
             } catch PaicarError.authExpired {
@@ -537,16 +511,6 @@ struct PaicarDispatchListView: View {
         }
     }
 
-    /// 滚动到底触发：配合冷却，一次手势最多加载一天
-    private func onReachBottom() {
-        if finishedMoreCooldown {
-            finishedMoreCooldown = false
-            return
-        }
-        finishedMoreCooldown = true
-        if showFinished { loadMoreFinished() } else { loadMoreDispatch() }
-    }
-
     // MARK: 提示条
 
     private func moreHint(isLast: Bool) -> some View {
@@ -557,11 +521,11 @@ struct PaicarDispatchListView: View {
                 return showFinished ? "没有更多了" : "当前还有 \(applies.count + dispatches.count) 部车未结单"
             }
             if !canMore { return "查看更多" }
-            if canScrollDown { return "下滑查看更多" }
+            // 全部页与已结单页统一"点击查看更多"：下滑手势触发不可靠
+            //（onAppear 哨兵只触发一次，滚动到底不再触发），改为点击提示条才加载下一页
             return "点击查看更多"
         }()
         return Button {
-            finishedMoreCooldown = false
             if showFinished { loadMoreFinished() } else { loadMoreDispatch() }
         } label: {
             Text(text)
@@ -636,7 +600,7 @@ struct PaicarDispatchListView: View {
                 }
                 if showFinished {
                     Text("车辆 \(o.specs) · 装载 \(o.loadingNum) 件 · 装载率 \(PaicarStyle.volRate(o))%")
-                        .font(.system(size: 13)).foregroundColor(Color(white: 0.95))
+                        .font(.system(size: 15, weight: .bold)).foregroundColor(.white)
                 }
             }
             .padding(.horizontal, 14)
@@ -808,13 +772,6 @@ struct PaicarDispatchListView: View {
         var top = host
         while let presented = top.presentedViewController { top = presented }
         top.present(alert, animated: true)
-    }
-}
-
-struct PaicarContentHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
     }
 }
 
