@@ -150,9 +150,10 @@ struct FireworksView: View {
                 Circle()
                     .fill(p.color)
                     .frame(width: p.size, height: p.size)
-                    .scaleEffect(play ? 1.1 : 0.3)
+                    .scaleEffect(play ? 1.0 : 0.3)
                     .opacity(play ? 0 : 1)
-                    .offset(x: play ? p.endX : p.startX, y: play ? p.endY : p.startY)
+                    // position 是相对父容器的绝对坐标（左上角原点），保证爆点分布全屏
+                    .position(x: play ? p.endX : p.startX, y: play ? p.endY : p.startY)
                     .animation(.easeOut(duration: p.duration).delay(p.delay), value: play)
             }
         }
@@ -180,25 +181,27 @@ struct FireworksView: View {
         var list: [FireworkParticle] = []
         let w = size.width
         let h = size.height
-        // 3 个爆点：分布在屏幕中下部横向错开（避开顶部"选择系统"标题区）
+        // 5 个爆点分布全屏（四角 + 中心），粒子向四周爆开铺满整个背景
         let bursts: [CGPoint] = [
-            CGPoint(x: w * 0.5, y: h * 0.42),
-            CGPoint(x: w * 0.22, y: h * 0.55),
-            CGPoint(x: w * 0.78, y: h * 0.55),
+            CGPoint(x: w * 0.22, y: h * 0.25),
+            CGPoint(x: w * 0.78, y: h * 0.25),
+            CGPoint(x: w * 0.5, y: h * 0.5),
+            CGPoint(x: w * 0.2, y: h * 0.78),
+            CGPoint(x: w * 0.8, y: h * 0.78),
         ]
         for (bi, b) in bursts.enumerated() {
-            let n = 18   // 每个爆点 18 个粒子，共 54 个，播完即静止
+            let n = 20   // 每个爆点 20 个粒子，共 100 个，播完即静止
             for i in 0..<n {
-                let angle = Double(i) / Double(n) * .pi * 2 + Double(bi) * 0.4
-                let dist = CGFloat.random(in: 60...150)
+                let angle = Double(i) / Double(n) * .pi * 2 + Double(bi) * 0.3
+                let dist = CGFloat.random(in: 80...190)
                 list.append(FireworkParticle(
                     color: colors.randomElement() ?? .white,
-                    size: CGFloat.random(in: 5...9),
+                    size: CGFloat.random(in: 6...11),
                     startX: b.x, startY: b.y,
                     endX: b.x + cos(angle) * dist,
-                    endY: b.y + sin(angle) * dist * 0.8,   // 纵向略压缩，贴近真实烟花
-                    duration: Double.random(in: 1.1...1.8),
-                    delay: Double(bi) * 0.15 + Double.random(in: 0...0.25)
+                    endY: b.y + sin(angle) * dist * 0.85,
+                    duration: Double.random(in: 2.8...4.2),   // 慢速爆开，总时长约 5 秒
+                    delay: Double(bi) * 0.2 + Double.random(in: 0...0.6)
                 ))
             }
         }
