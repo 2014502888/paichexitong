@@ -1,5 +1,4 @@
 import Foundation
-import CFNetwork
 
 // MARK: - 寄递派车 API 客户端（对应 PaicarApi.kt，PhalApi sign 签名）
 // 签名/参数顺序与安卓、Flutter 完全一致：keys 用「插入顺序」（s→业务参数→token→user_id→timestamp→sign→keys），
@@ -84,37 +83,47 @@ enum PaicarApi {
         return r
     }
 
-    /// 网络请求统一入口（URLSession 标准网络栈，与安卓 OkHttp 机制一致）。
-    /// 此前用 POSIX socket 直连（URLSession 曾请求挂起）→ 现在按用户要求改回标准实现，
-    /// 服务器 301/302 重定向由 URLSession 自动跟随。
+    /// 网络请求统一入口（NSURLConnection 同步请求 + 硬超时，与外网查询模块同款）。
+    /// 为什么不用 URLSession：iOS 18 上 URLSession 请求可能永久挂起（timeout/cancel 均不触发
+    /// completion，回调版与 async 版都存在），且 Task 取消竞态可能引发崩溃；NSURLConnection
+    /// 同步请求 + 硬超时请求必定在超时时间内返回。不手写 socket（非直连），301 重定向由系统自动跟随。
     private static func perform(_ req: URLRequest, timeout: TimeInterval = 15, service: String) async throws -> Data {
-        let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = timeout
-        config.timeoutIntervalForResource = timeout + 6
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        // 对齐安卓 OkHttp 默认 NO_PROXY（不走系统代理）：
-        // iOS URLSession 默认走系统代理，用户开着 ProxyPin 抓包时请求会挂在代理上永不返回 → 卡"正在登录"。
-        // 显式禁用 HTTP/HTTPS/SOCKS 代理，直连服务器，与安卓行为一致。
-        config.connectionProxyDictionary = [
-            kCFNetworkProxiesHTTPEnable: false,
-            kCFNetworkProxiesHTTPSEnable: false,
-            kCFNetworkProxiesSOCKSEnable: false,
-        ]
-        let session = URLSession(configuration: config)
-        defer { session.finishTasksAndInvalidate() }
-        do {
-            let (data, response) = try await session.data(for: req)
-            guard let http = response as? HTTPURLResponse else {
-                throw PaicarError.api("网络错误(\(service))：非 HTTP 响应")
+        return try await withCheckedThrowingContinuation { cont in
+            let box = OnceBox()
+            DispatchQueue.global().async {
+                var response: URLResponse?
+                do {
+                    let data = try NSURLConnection.sendSynchronousRequest(req, returning: &response)
+                    guard let http = response as? HTTPURLResponse else {
+                        box.once { cont.resume(throwing: PaicarError.api("网络错误(\(service))：非 HTTP 响应")) }
+                        return
+                    }
+                    guard (200..<300).contains(http.statusCode) else {
+                        box.once { cont.resume(throwing: PaicarError.api("网络错误(\(service))：HTTP \(http.statusCode)")) }
+                        return
+                    }
+                    box.once { cont.resume(returning: data) }
+                } catch let err {
+                    box.once { cont.resume(throwing: PaicarError.api("网络错误(\(service))：\(err.localizedDescription)")) }
+                }
             }
-            guard (200..<300).contains(http.statusCode) else {
-                throw PaicarError.api("网络错误(\(service))：HTTP \(http.statusCode)")
+            // 兜底：正常时同步请求已被 timeoutInterval 截断；极端情况仍无返回时强制返回超时，绝不永久挂起
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout + 6) {
+                box.once {
+                    cont.resume(throwing: PaicarError.api("请求超时(\(service))：请求已发出但无响应，请检查网络后重试"))
+                }
             }
-            return data
-        } catch let e as PaicarError {
-            throw e
-        } catch {
-            throw PaicarError.api("网络错误(\(service))：\(error.localizedDescription)")
+        }
+    }
+
+    /// 防重复 resume 的闭包盒（同步请求与兜底定时器可能竞争）
+    private final class OnceBox {
+        private let lock = NSLock()
+        private var done = false
+        func once(_ op: () -> Void) {
+            lock.lock()
+            if !done { done = true; op() }
+            lock.unlock()
         }
     }
 
