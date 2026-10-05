@@ -461,8 +461,7 @@ struct PaicarDispatchListView: View {
     }
 
     private func fetchFinishedPage(p: PaicarProfile) async throws {
-        if exhausted || finishedPage >= 50 {
-            exhausted = true
+        if exhausted {
             return
         }
         let raw = try await PaicarApi.dispatchOrderList(organId: p.organId, rolesId: p.rolesId, page: finishedPage + 1, perpage: 20)
@@ -476,7 +475,8 @@ struct PaicarDispatchListView: View {
             let d = PaicarStyle.dayOf(PaicarDispatchOrder.fromJson(last).createTime)
             if !d.isEmpty { lastPageOldestDay = d }
         }
-        if raw.count < 20 || finishedPage >= 50 { exhausted = true }
+        // 服务器返回不满一页 = 真到底（不再人为设置 50 页上限截断历史数据）
+        if raw.count < 20 { exhausted = true }
     }
 
     private func loadFinishedForDate(_ day: String) {
@@ -486,7 +486,8 @@ struct PaicarDispatchListView: View {
         Task {
             do {
                 let p = try await PaicarProfileHolder.load()
-                while finishedPool.contains(where: { PaicarStyle.dayOf($0.createTime) == day }) == false && !exhausted && finishedPage < 50 {
+                // 翻到找到目标日为止（服务器数据有限，翻完即 exhausted，不会死循环）
+                while finishedPool.contains(where: { PaicarStyle.dayOf($0.createTime) == day }) == false && !exhausted {
                     try await fetchFinishedPage(p: p)
                 }
             } catch {}
@@ -502,9 +503,9 @@ struct PaicarDispatchListView: View {
                 let p = try await PaicarProfileHolder.load()
                 var guardCount = 0
                 var found = false
-                // 上限 5 页（100 条原始单）：正常部门一天十来个单，2~3 页内必出结果；
-                // 避免服务器历史单量大时无脑翻 50 页导致长时间"加载中"（看起来卡死）
-                while !exhausted && guardCount < 5 {
+                // 每天都有已结单 → 翻到找到目标日为止（不再限制 5 页）；
+                // 200 页上限仅防接口异常死循环，正常靠"找到/翻过目标日/服务器到底"三个条件自然退出
+                while !exhausted && guardCount < 200 {
                     guardCount += 1
                     try await fetchFinishedPage(p: p)
                     let dayList = finishedPool.filter { PaicarStyle.dayOf($0.createTime) == finishedCursor }
