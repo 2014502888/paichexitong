@@ -409,8 +409,6 @@ struct PaicarHomeView: View {
 
 extension Notification.Name {
     static let paicarBackToRoot = Notification.Name("paicarBackToRoot")
-    // 从其他子系统（外网/内网/网址助手/远程开机）返回主页面时触发，用于主页面播放一次背景烟花
-    static let paicarReturnToMain = Notification.Name("paicarReturnToMain")
     static let paicarBackToAllList = Notification.Name("paicarBackToAllList")
     static let paicarShowMenu = Notification.Name("paicarShowMenu")
     static let paicarOpenNewApply = Notification.Name("paicarOpenNewApply")

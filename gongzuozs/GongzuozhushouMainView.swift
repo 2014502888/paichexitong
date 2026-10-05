@@ -3,8 +3,6 @@ import SwiftUI
 struct GongzuozhushouMainView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var showPaicar = false
-    // 烟花播放触发器：每次主页面出现/从子系统返回时 +1，FireworksView 监听变化播放一次
-    @State private var fireworkTick = 0
 
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
@@ -15,9 +13,10 @@ struct GongzuozhushouMainView: View {
             GeometryReader { geo in
                 ZStack {
                     pageBg.ignoresSafeArea()
-                    // 背景烟花：每次主页面出现（启动/从子系统返回）播放一次，约 5 秒后静止；
+                    // 背景烟花：主页面每次出现（启动/从任何系统返回）播放一次，约 5 秒后静止；
+                    // 触发时机 = 主页面 onAppear（pop 回根视图必然触发，按钮/手势/派车通知都覆盖）；
                     // 粒子少 + 一次性动画，播完 GPU 无负载，几乎不额外耗电
-                    FireworksView(size: geo.size, tick: fireworkTick)
+                    FireworksView(size: geo.size)
                     ScrollView {
                         VStack(spacing: 20) {
                             // 选择系统 + 5 个系统 = 6 项内容
@@ -66,13 +65,9 @@ struct GongzuozhushouMainView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .paicarBackToRoot)) { _ in
             showPaicar = false
-            // 派车模块返回：延迟到 pop 动画完成后再触发烟花（立即触发会被返回动画盖掉/打断，看不到效果）
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { fireworkTick += 1 }
+            // 派车返回主页面：pop 回根视图后主页面重新 onAppear，FireworksView 自动播放烟花
+            //（无需在此手动触发）
             // 清理统一在 onChange(of: showPaicar) 处理（覆盖返回键/通知/系统手势 pop 等所有退出路径）
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .paicarReturnToMain)) { _ in
-            // 外网/内网/网址助手/远程开机返回主页面：延迟到 pop 动画完成后再触发烟花
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { fireworkTick += 1 }
         }
         .onChange(of: showPaicar) { newValue in
             if !newValue {
@@ -96,11 +91,7 @@ struct GongzuozhushouMainView: View {
     private var purple: Color { Color(red: 0.61, green: 0.15, blue: 0.69) }  // #9C27B0
 
     private func entryButton<D: View>(_ title: String, color: Color, @ViewBuilder destination: @escaping () -> D) -> some View {
-        NavigationLink(destination: destination().onDisappear {
-            // 从子系统返回主页面时发通知，主页面收到后播放一次背景烟花
-            //（onDisappear 在 pop 返回时触发，兼容各 iOS 版本）
-            NotificationCenter.default.post(name: .paicarReturnToMain, object: nil)
-        }, label: {
+        NavigationLink(destination: destination(), label: {
             Text(title)
                 .font(.headline)
                 .foregroundColor(.white)
@@ -130,10 +121,8 @@ struct FireworkParticle: Identifiable {
 
 struct FireworksView: View {
     let size: CGSize
-    let tick: Int   // 从子系统/派车返回主页面时 +1，监听变化触发一次播放
     @State private var particles: [FireworkParticle] = []
     @State private var play = false
-    @State private var playedOnce = false   // 启动播放只做一次，避免与 tick 触发双播
 
     private let colors: [Color] = [
         Color(red: 1.0, green: 0.84, blue: 0.0),   // 金
@@ -159,21 +148,13 @@ struct FireworksView: View {
         }
         .frame(width: size.width, height: size.height)
         .allowsHitTesting(false)
-        .onChange(of: tick) { _ in
-            // 从子系统/派车返回主页面：重新生成随机烟花并播放一次；
-            // 先置 false 再置 true，保证重复触发时动画一定重新播放
+        .onAppear {
+            // 主页面每次出现（启动 / 从系统返回——无论按钮、手势还是派车通知，
+            // pop 回根视图都会重新 appear）都播放一次烟花；
+            // 先置 false 再置 true，保证重复出现时动画一定重新播放
             makeParticles()
             play = false
             DispatchQueue.main.async { play = true }
-        }
-        .onAppear {
-            // 启动/首次出现播放一次（带防重复标记，避免与后续 tick 触发双播）
-            if !playedOnce {
-                playedOnce = true
-                makeParticles()
-                play = false
-                DispatchQueue.main.async { play = true }
-            }
         }
     }
 
