@@ -714,12 +714,36 @@ struct PaicarDispatchListView: View {
             toastMsg = "没有可撤回的申请单"
             return
         }
-        let alert = UIAlertController(title: "确认一键撤回？", message: "将撤回并删除所有快捷申请单", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        alert.addAction(UIAlertAction(title: "确认撤回", style: .destructive) { _ in
-            doQuickRecall(ids: ids)
-        })
-        present(alert)
+        Task {
+            // 弹窗前逐个查服务端当前状态：本地记录可能已进入派车/结单流程（如已结单），统计真实可撤回(000/001)数量
+            var recallable = 0
+            var skipped = 0
+            for id in ids {
+                let detail: [String: Any]
+                do {
+                    detail = try await PaicarApi.applyOrderDetail(id: id)
+                } catch PaicarError.authExpired {
+                    toastMsg = "登录已失效，请重新登录"
+                    return
+                } catch {
+                    detail = [:]
+                }
+                let st = (detail["statusCode"] as? String) ?? ""
+                if st == "000" || st == "001" { recallable += 1 } else { skipped += 1 }
+            }
+            let msg: String
+            if skipped > 0 {
+                msg = "将撤回并删除 \(recallable) 张申请单，\(skipped) 张已进入派车/结单流程将跳过，确定？"
+            } else {
+                msg = "将撤回并删除 \(recallable) 张申请单，确定？"
+            }
+            let alert = UIAlertController(title: "确认一键撤回？", message: msg, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+            alert.addAction(UIAlertAction(title: "确认撤回", style: .destructive) { _ in
+                doQuickRecall(ids: ids)
+            })
+            present(alert)
+        }
     }
 
     private func doQuickRecall(ids: [String]) {
