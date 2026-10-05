@@ -82,6 +82,8 @@ struct PaicarDispatchListView: View {
     @State private var authError = false
     @State private var finishedLoadedOnce = false
     @State private var finishedCursor = ""   // 当前已显示到哪一天（yyyy-MM-dd）
+    @State private var moreFinishedDay: String? = nil   // 最近一次"查看更多"加载到的日期（提示条显示"以下是 XXXX-XX-XX"）
+    @State private var lastPageOldestDay = ""   // 最近翻到的一页里最旧单的日期，用于提前终止（翻过目标日后不再无谓翻页）
     @State private var pushApplyId: String?
     @State private var pushDispatchId: String?
     @State private var didInitialLoad = false   // 首次进入必加载（修复 onAppear 守卫 !loading 把首次加载挡住导致永远转圈）
@@ -308,11 +310,11 @@ struct PaicarDispatchListView: View {
                 var end = i + 1
                 while end < source.count && PaicarStyle.dayOf(source[end].createTime) == day { end += 1 }
                 for k in i..<end { l.append(.dispatch(source[k])) }
-                // 只有最后一个（最旧）日期分组下面显示"没有更多了"，
-                // 中间分组 isLast=false，避免全部加载完后每个日期下重复提示
-                l.append(.hint(end >= source.count))
                 i = end
             }
+            // 提示条只在列表最底部保留一个（已加载的最旧日期组之后）：
+            // 未点过显示"点击查看更多"，加载完成后显示"以下是 YYYY-MM-DD"，到底显示"没有更多了"
+            l.append(.hint(true))
             return l
         } else {
             var l: [PaicarListItem] = []
@@ -423,6 +425,8 @@ struct PaicarDispatchListView: View {
                 finishedPage = 0
                 exhausted = false
                 hasMoreFinished = true
+                moreFinishedDay = nil
+                lastPageOldestDay = ""
                 var guardCount = 0
                 while finishedPool.contains(where: { $0.statusCode == "999" }) == false && !exhausted && guardCount < 50 {
                     guardCount += 1
@@ -461,6 +465,11 @@ struct PaicarDispatchListView: View {
             let o = PaicarDispatchOrder.fromJson(e)
             if o.statusCode == "999" { finishedPool.append(o) }
         }
+        // 记录本页最旧单的日期（接口按创建时间倒序）：供"查看更多"判断是否已翻过目标日
+        if let last = raw.last {
+            let d = PaicarStyle.dayOf(PaicarDispatchOrder.fromJson(last).createTime)
+            if !d.isEmpty { lastPageOldestDay = d }
+        }
         if raw.count < 20 || finishedPage >= 50 { exhausted = true }
     }
 
@@ -478,7 +487,7 @@ struct PaicarDispatchListView: View {
         }
     }
 
-    /// 继续翻页加载前一天（一次手势最多一天）
+    /// 继续翻页加载前一天（点击"查看更多"触发，一次最多加载一天）
     private func loadMoreFinished() {
         if loadingMoreFinished || !hasMoreFinished || loadingFinished || !showFinished { return }
         loadingMoreFinished = true
@@ -487,19 +496,25 @@ struct PaicarDispatchListView: View {
                 let p = try await PaicarProfileHolder.load()
                 var guardCount = 0
                 var found = false
-                while !exhausted && guardCount < 50 {
+                // 上限 5 页（100 条原始单）：正常部门一天十来个单，2~3 页内必出结果；
+                // 避免服务器历史单量大时无脑翻 50 页导致长时间"加载中"（看起来卡死）
+                while !exhausted && guardCount < 5 {
                     guardCount += 1
                     try await fetchFinishedPage(p: p)
                     let dayList = finishedPool.filter { PaicarStyle.dayOf($0.createTime) == finishedCursor }
                     if !dayList.isEmpty {
+                        // 找到目标日的 999 单：显示该天，光标前推一天；提示条记录该日期
+                        moreFinishedDay = finishedCursor
                         finishedList.append(contentsOf: dayList)
                         finishedCursor = PaicarStyle.addDays(finishedCursor, -1)
                         found = true
                         break
                     }
+                    // 已翻到日期早于目标日的页 → 目标日已全部翻完且无单 → 到底，不再继续翻更早
+                    if !lastPageOldestDay.isEmpty && lastPageOldestDay < finishedCursor { break }
                     if exhausted { break }
                 }
-                if exhausted && !found {
+                if !found {
                     hasMoreFinished = false
                 }
                 loadingMoreFinished = false
@@ -521,8 +536,9 @@ struct PaicarDispatchListView: View {
                 return showFinished ? "没有更多了" : "当前还有 \(applies.count + dispatches.count) 部车未结单"
             }
             if !canMore { return "查看更多" }
-            // 全部页与已结单页统一"点击查看更多"：下滑手势触发不可靠
-            //（onAppear 哨兵只触发一次，滚动到底不再触发），改为点击提示条才加载下一页
+            // 已结单页：最近一次"查看更多"加载到的日期 → 显示"以下是 YYYY-MM-DD"（可继续点加载更早）；
+            // 未点过则显示"点击查看更多"。全部页按页加载，保持"点击查看更多"
+            if showFinished, let d = moreFinishedDay { return "以下是 \(d)" }
             return "点击查看更多"
         }()
         return Button {
