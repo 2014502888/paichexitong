@@ -1,4 +1,5 @@
 import Foundation
+import CFNetwork
 
 // MARK: - 寄递派车 API 客户端（对应 PaicarApi.kt，PhalApi sign 签名）
 // 签名/参数顺序与安卓、Flutter 完全一致：keys 用「插入顺序」（s→业务参数→token→user_id→timestamp→sign→keys），
@@ -91,6 +92,14 @@ enum PaicarApi {
         config.timeoutIntervalForRequest = timeout
         config.timeoutIntervalForResource = timeout + 6
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        // 对齐安卓 OkHttp 默认 NO_PROXY（不走系统代理）：
+        // iOS URLSession 默认走系统代理，用户开着 ProxyPin 抓包时请求会挂在代理上永不返回 → 卡"正在登录"。
+        // 显式禁用 HTTP/HTTPS/SOCKS 代理，直连服务器，与安卓行为一致。
+        config.connectionProxyDictionary = [
+            kCFNetworkProxiesHTTPEnable: false,
+            kCFNetworkProxiesHTTPSEnable: false,
+            kCFNetworkProxiesSOCKSEnable: false,
+        ]
         let session = URLSession(configuration: config)
         defer { session.finishTasksAndInvalidate() }
         do {
