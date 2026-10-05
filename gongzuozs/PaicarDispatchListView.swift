@@ -82,7 +82,7 @@ struct PaicarDispatchListView: View {
     @State private var authError = false
     @State private var finishedLoadedOnce = false
     @State private var finishedCursor = ""   // 当前已显示到哪一天（yyyy-MM-dd）
-    @State private var moreFinishedDay: String? = nil   // 最近一次"查看更多"加载到的日期（提示条显示"以下是 XXXX-XX-XX"）
+    @State private var moreLoadedDays: Set<String> = []   // 通过"查看更多"加载出来的日期（列表里显示"以下是 YYYY-MM-DD"静态标识）
     @State private var lastPageOldestDay = ""   // 最近翻到的一页里最旧单的日期，用于提前终止（翻过目标日后不再无谓翻页）
     @State private var pushApplyId: String?
     @State private var pushDispatchId: String?
@@ -170,6 +170,8 @@ struct PaicarDispatchListView: View {
                                         .buttonStyle(.plain)
                                 case .hint(let isLast):
                                     moreHint(isLast: isLast)
+                                case .dateLabel(let day):
+                                    dateLabel(day)
                                 }
                             }
                         }
@@ -309,11 +311,15 @@ struct PaicarDispatchListView: View {
                 let day = PaicarStyle.dayOf(source[i].createTime)
                 var end = i + 1
                 while end < source.count && PaicarStyle.dayOf(source[end].createTime) == day { end += 1 }
+                // 通过"查看更多"加载出来的日期分组：上方加静态日期标识"以下是 YYYY-MM-DD"
+                //（首次进入显示的最新一天不加，用户能直接看到内容）
+                if moreLoadedDays.contains(day) {
+                    l.append(.dateLabel(day))
+                }
                 for k in i..<end { l.append(.dispatch(source[k])) }
                 i = end
             }
-            // 提示条只在列表最底部保留一个（已加载的最旧日期组之后）：
-            // 未点过显示"点击查看更多"，加载完成后显示"以下是 YYYY-MM-DD"，到底显示"没有更多了"
+            // 最底部始终是"点击查看更多"按钮（可继续点），到底显示"没有更多了"
             l.append(.hint(true))
             return l
         } else {
@@ -425,7 +431,7 @@ struct PaicarDispatchListView: View {
                 finishedPage = 0
                 exhausted = false
                 hasMoreFinished = true
-                moreFinishedDay = nil
+                moreLoadedDays.removeAll()
                 lastPageOldestDay = ""
                 var guardCount = 0
                 while finishedPool.contains(where: { $0.statusCode == "999" }) == false && !exhausted && guardCount < 50 {
@@ -503,8 +509,8 @@ struct PaicarDispatchListView: View {
                     try await fetchFinishedPage(p: p)
                     let dayList = finishedPool.filter { PaicarStyle.dayOf($0.createTime) == finishedCursor }
                     if !dayList.isEmpty {
-                        // 找到目标日的 999 单：显示该天，光标前推一天；提示条记录该日期
-                        moreFinishedDay = finishedCursor
+                        // 找到目标日的 999 单：显示该天并记录为"查看更多加载的日期"，光标前推一天
+                        moreLoadedDays.insert(finishedCursor)
                         finishedList.append(contentsOf: dayList)
                         finishedCursor = PaicarStyle.addDays(finishedCursor, -1)
                         found = true
@@ -536,9 +542,8 @@ struct PaicarDispatchListView: View {
                 return showFinished ? "没有更多了" : "当前还有 \(applies.count + dispatches.count) 部车未结单"
             }
             if !canMore { return "查看更多" }
-            // 已结单页：最近一次"查看更多"加载到的日期 → 显示"以下是 YYYY-MM-DD"（可继续点加载更早）；
-            // 未点过则显示"点击查看更多"。全部页按页加载，保持"点击查看更多"
-            if showFinished, let d = moreFinishedDay { return "以下是 \(d)" }
+            // 已结单/全部页底部按钮统一"点击查看更多"：
+            // 加载出来的日期用独立的静态"以下是 YYYY-MM-DD"标识（dateLabel），按钮本身始终显示"点击查看更多"
             return "点击查看更多"
         }()
         return Button {
@@ -551,6 +556,16 @@ struct PaicarDispatchListView: View {
                 .padding(.vertical, 14)
         }
         .disabled(!canMore)
+    }
+
+    /// 静态日期标识："以下是 YYYY-MM-DD"（点"查看更多"加载出来的日期分组上方显示，不可点）
+    private func dateLabel(_ day: String) -> some View {
+        Text("以下是 \(day)")
+            .font(.system(size: 13))
+            .foregroundColor(Color.gray)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 14)
+            .padding(.bottom, 2)
     }
 
     // MARK: 卡片
@@ -795,12 +810,14 @@ enum PaicarListItem: Hashable {
     case apply(PaicarApplyOrder)
     case dispatch(PaicarDispatchOrder)
     case hint(Bool)
+    case dateLabel(String)   // 静态日期标识："以下是 YYYY-MM-DD"（不可点，仅提示新加载分组的日期）
 
     func hash(into hasher: inout Hasher) {
         switch self {
         case .apply(let o): hasher.combine("a"); hasher.combine(o.id)
         case .dispatch(let o): hasher.combine("d"); hasher.combine(o.id)
         case .hint(let last): hasher.combine("h"); hasher.combine(last)
+        case .dateLabel(let s): hasher.combine("dl"); hasher.combine(s)
         }
     }
 }
