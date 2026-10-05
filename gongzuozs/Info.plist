@@ -7,9 +7,9 @@
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleName</key>
-	<string>寄递工作台</string>
+	<string>工作助手</string>
 	<key>CFBundleDisplayName</key>
-	<string>寄递工作台</string>
+	<string>工作助手</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1</string>
 	<key>CFBundleVersion</key>
