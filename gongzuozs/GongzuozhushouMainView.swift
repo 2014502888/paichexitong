@@ -66,13 +66,13 @@ struct GongzuozhushouMainView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .paicarBackToRoot)) { _ in
             showPaicar = false
-            // 派车模块返回：播放一次背景烟花
-            fireworkTick += 1
+            // 派车模块返回：延迟到 pop 动画完成后再触发烟花（立即触发会被返回动画盖掉/打断，看不到效果）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { fireworkTick += 1 }
             // 清理统一在 onChange(of: showPaicar) 处理（覆盖返回键/通知/系统手势 pop 等所有退出路径）
         }
         .onReceive(NotificationCenter.default.publisher(for: .paicarReturnToMain)) { _ in
-            // 外网/内网/网址助手/远程开机返回主页面：播放一次背景烟花
-            fireworkTick += 1
+            // 外网/内网/网址助手/远程开机返回主页面：延迟到 pop 动画完成后再触发烟花
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { fireworkTick += 1 }
         }
         .onChange(of: showPaicar) { newValue in
             if !newValue {
