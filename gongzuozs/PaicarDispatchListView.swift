@@ -79,6 +79,8 @@ struct PaicarDispatchListView: View {
     @State private var finishedPage = 0
     @State private var exhausted = false
     @State private var error = ""
+    // 登录失效标记：error 为"登录已失效"时按钮显示"登入"（换 token 自动登入），否则显示"重试"
+    @State private var authError = false
     @State private var finishedLoadedOnce = false
     @State private var finishedMoreCooldown = false
     @State private var finishedCursor = ""   // 当前已显示到哪一天（yyyy-MM-dd）
@@ -134,10 +136,18 @@ struct PaicarDispatchListView: View {
             } else if error.isEmpty == false && (showFinished ? finishedList.isEmpty : (applies.isEmpty && dispatches.isEmpty)) {
                 Spacer()
                 Text(error).font(.system(size: 14)).foregroundColor(fg)
-                Button("重试") { load() }
-                    .font(.system(size: 14))
-                    .foregroundColor(blue)
-                    .padding(.top, 12)
+                // 登录失效：重试无效（旧 token 永远 410），换成"登入"直接换新 token 自动登入
+                if authError {
+                    Button("登入") { PaicarApi.reLoginWithSaved() }
+                        .font(.system(size: 14))
+                        .foregroundColor(blue)
+                        .padding(.top, 12)
+                } else {
+                    Button("重试") { load() }
+                        .font(.system(size: 14))
+                        .foregroundColor(blue)
+                        .padding(.top, 12)
+                }
                 Spacer()
             } else if showFinished ? finishedList.isEmpty : (applies.isEmpty && dispatches.isEmpty) {
                 Spacer()
@@ -354,6 +364,7 @@ struct PaicarDispatchListView: View {
     private func load(showLoading: Bool = true) {
         if showLoading { loading = true }
         error = ""
+        authError = false
         // UI 级硬超时兜底：即使网络层极端异常，16 秒内必结束转圈并显示错误，不再无限转圈
         DispatchQueue.main.asyncAfter(deadline: .now() + 16) {
             guard self.loading else { return }
@@ -381,6 +392,7 @@ struct PaicarDispatchListView: View {
                 loading = false
                 // token 失效（被顶号/过期）不再静默置空：明确提示用户重新登录，
                 // 否则表现为"刚打开完全没数据"，只有退出重登才恢复
+                authError = true
                 error = "登录已失效，请重新登录"
             } catch let err {
                 loading = false
@@ -455,6 +467,7 @@ struct PaicarDispatchListView: View {
             } catch PaicarError.authExpired {
                 loadingFinished = false
                 // 与"全部"页一致：token 失效不再静默空，明确提示重新登录
+                authError = true
                 error = "登录已失效，请重新登录"
             } catch let err {
                 loadingFinished = false

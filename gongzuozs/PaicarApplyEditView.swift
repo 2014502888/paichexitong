@@ -22,6 +22,8 @@ struct PaicarApplyEditView: View {
     @State private var loading = true
     @State private var saving = false
     @State private var error = ""
+    // 登录失效标记：error 为"登录已失效"时按钮显示"登入"（换 token 自动登入），否则显示"重试"
+    @State private var authError = false
     @State private var toastMsg: String?
     @State private var showCustomTime = false
     @State private var customDate = Date()
@@ -57,8 +59,14 @@ struct PaicarApplyEditView: View {
                         ProgressView().padding(.top, 160)
                     } else if !error.isEmpty {
                         Text(error).font(.system(size: 14)).foregroundColor(fg).padding(.top, 160)
-                        Button("重试") { load() }
-                            .font(.system(size: 14)).foregroundColor(blue).padding(.top, 12)
+                        // 登录失效：重试无效（旧 token 永远 410），换成"登入"直接换新 token 自动登入
+                        if authError {
+                            Button("登入") { PaicarApi.reLoginWithSaved() }
+                                .font(.system(size: 14)).foregroundColor(blue).padding(.top, 12)
+                        } else {
+                            Button("重试") { load() }
+                                .font(.system(size: 14)).foregroundColor(blue).padding(.top, 12)
+                        }
                     } else {
                         section("到达时间")
                         Button {
@@ -237,6 +245,7 @@ struct PaicarApplyEditView: View {
     private func load() {
         loading = true
         error = ""
+        authError = false
         Task {
             do {
                 let p = try await PaicarProfileHolder.load()
@@ -256,6 +265,9 @@ struct PaicarApplyEditView: View {
                 }
             } catch PaicarError.authExpired {
                 loading = false
+                // token 失效：明确提示重新登录（原来只清 loading 会变空白页无任何提示）
+                authError = true
+                error = "登录已失效，请重新登录"
             } catch let err {
                 loading = false
                 error = (err as? PaicarError)?.errorDescription ?? err.localizedDescription

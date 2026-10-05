@@ -218,6 +218,40 @@ enum PaicarApi {
         return info
     }
 
+    /// 页面级"登入"按钮（登录已失效提示时用）：有保存的账密 → 直接用账密换新 token 自动登入，
+    /// 不经过登录页（无一闪而过）；没保存账密 → 回登录页手动输入。
+    /// 为什么不做"重试"：token 已被顶/过期时，重试只是拿旧 token 再发一次，永远 410，重试无效。
+    static func reLoginWithSaved() {
+        let u = PaicarSession.savedUserNo
+        let p = PaicarSession.savedUserPwd
+        guard !u.isEmpty, !p.isEmpty else {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .paicarForceLogin, object: nil)
+            }
+            return
+        }
+        Task {
+            do {
+                let info = try await login(userNo: u, plainPassword: p)
+                PaicarSession.save(token: info.token, userId: info.userId, userNo: u, userPwd: p)
+                PaicarProfileHolder.profile = nil
+                justLoggedOut = false
+                silentAuthExpired = false
+                DispatchQueue.main.async {
+                    // 复用"重新登录成功"通知：进主页 + 清栈 + 列表页自己监听刷新
+                    NotificationCenter.default.post(name: .paicarReloadAfterLogin, object: nil)
+                }
+            } catch {
+                guard moduleActive else { return }
+                lastAuthError = (error as? PaicarError)?.errorDescription ?? error.localizedDescription
+                DispatchQueue.main.async {
+                    // 登录失败（账密已改/被限流等）：回登录页，登录页会显示失败原因
+                    NotificationCenter.default.post(name: .paicarForceLogin, object: nil)
+                }
+            }
+        }
+    }
+
     static func profile() async throws -> [String: Any] {
         let r = try await get("App.User_user.profile", params: [])
         if !r.ok {
