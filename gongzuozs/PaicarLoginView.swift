@@ -416,6 +416,8 @@ extension Notification.Name {
     static let paicarOpenEditApply = Notification.Name("paicarOpenEditApply")
     static let paicarOpenArrange = Notification.Name("paicarOpenArrange")
     static let paicarOpenFinish = Notification.Name("paicarOpenFinish")
+    // FullScreenBack 手势确认 pop 时发出（UIKit 层 pop 不反向写回 SwiftUI 受控 isActive，用于同步派车模块状态）
+    static let navigationPopDetected = Notification.Name("navigationPopDetected")
 }
 
 // MARK: - 通用 Toast（无图标）

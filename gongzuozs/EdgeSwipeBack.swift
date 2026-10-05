@@ -89,6 +89,9 @@ final class FBSHaptic: NSObject {
             let vx = g.velocity(in: g.view).x
             if tx > w * 0.35 || vx > 300 {
                 generator?.impactOccurred(intensity: 1.0)
+                // 手势确认 pop：UIKit 层 pop 不会反向写回 SwiftUI 受控 NavigationLink(isActive:) 的状态
+                //（派车模块 isActive 绑定），发通知让主页面同步状态 → 重新 appear → 烟花正常触发
+                NotificationCenter.default.post(name: .navigationPopDetected, object: nil)
             }
             generator = nil
         case .cancelled, .failed:

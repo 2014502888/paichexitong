@@ -69,6 +69,13 @@ struct GongzuozhushouMainView: View {
             //（无需在此手动触发）
             // 清理统一在 onChange(of: showPaicar) 处理（覆盖返回键/通知/系统手势 pop 等所有退出路径）
         }
+        .onReceive(NotificationCenter.default.publisher(for: .navigationPopDetected)) { _ in
+            // FullScreenBack 左缘右滑确认 pop（手势路径）：UIKit pop 不会反向写回 SwiftUI 的
+            // NavigationLink(isActive:) 状态 → 派车模块 pop 后主页面视图层级不变、不重新 appear，
+            // 烟花 onAppear 不触发。这里强制同步 isActive=false，让 SwiftUI 状态一致 → 主页面
+            // 重新 appear → FireworksView.onAppear 播放烟花。
+            if showPaicar { showPaicar = false }
+        }
         .onChange(of: showPaicar) { newValue in
             if !newValue {
                 // 退出派车模块：不再清 token！保留本地会话供下次进入复用（对齐原版 uni-app），
