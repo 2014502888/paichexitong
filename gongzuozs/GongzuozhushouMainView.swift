@@ -15,7 +15,7 @@ struct GongzuozhushouMainView: View {
             GeometryReader { geo in
                 ZStack {
                     pageBg.ignoresSafeArea()
-                    // 背景烟花：每次主页面出现（启动/从子系统返回）播放一次，约 2 秒后静止；
+                    // 背景烟花：每次主页面出现（启动/从子系统返回）播放一次，约 5 秒后静止；
                     // 粒子少 + 一次性动画，播完 GPU 无负载，几乎不额外耗电
                     FireworksView(size: geo.size, tick: fireworkTick)
                     ScrollView {
@@ -112,8 +112,8 @@ struct GongzuozhushouMainView: View {
     }
 }
 
-// MARK: - 主页面背景烟花（每次页面出现播放一次，约 2 秒后静止）
-// 纯 SwiftUI 轻量动画（iOS 14 兼容）：几十个粒子一次性爆开淡出，播完 GPU 无负载。
+// MARK: - 主页面背景烟花（每次页面出现播放一次，约 5 秒后静止）
+// 纯 SwiftUI 轻量动画（iOS 14 兼容）：100 个粒子一次性爆开淡出，播完 GPU 无负载。
 // 彩色粒子在深色黑底 / 浅色白底上都清晰可见；不拦截任何点击（allowsHitTesting(false)）。
 
 struct FireworkParticle: Identifiable {
