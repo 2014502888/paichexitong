@@ -7,7 +7,6 @@ struct PaicarProfile {
     let id: String
     let name: String
     let rolesId: String
-    let roles: String
     let organId: String
     let organName: String
     let pwdChanged: Bool
@@ -17,7 +16,6 @@ struct PaicarProfile {
             id: s(j, "id"),
             name: s(j, "name"),
             rolesId: s(j, "roles_id"),
-            roles: s(j, "roles"),
             organId: s(j, "organ_id"),
             organName: s(j, "organName"),
             pwdChanged: ((j["pwdChanged"] as? NSNumber)?.intValue ?? 0) == 1
@@ -84,10 +82,8 @@ struct PaicarDispatchOrder: Identifiable, Hashable {
     let driverId: String
     let driverName: String
     let driverPhone: String
-    let carOrganName: String
     let specs: String
     let volume: String
-    let pieceFreight: String
     let loadingNum: String
     let createTime: String
     let createId: String
@@ -118,10 +114,8 @@ struct PaicarDispatchOrder: Identifiable, Hashable {
             driverId: s(j, "driver_id"),
             driverName: s(j, "driverName"),
             driverPhone: s(j, "driverPhone"),
-            carOrganName: s(j, "carOrganName"),
             specs: s(j, "specs"),
             volume: s(j, "volume"),
-            pieceFreight: s(j, "pieceFreight"),
             loadingNum: s(j, "loadingNum"),
             createTime: s(j, "createTime"),
             createId: s(j, "create_id"),

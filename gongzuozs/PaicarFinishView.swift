@@ -73,8 +73,8 @@ struct PaicarFinishView: View {
                             iconBtn("camera.fill", "拍照") {
                                 showCamera = true
                             }
-                            .disabled(draftImages.count >= maxImages)
-                            .opacity(draftImages.count >= maxImages ? 0.4 : 1)
+                            .disabled(draftImages.count >= maxImages || !UIImagePickerController.isSourceTypeAvailable(.camera))
+                            .opacity(draftImages.count >= maxImages || !UIImagePickerController.isSourceTypeAvailable(.camera) ? 0.4 : 1)
                         }
                         .padding(.horizontal, 16)
 
@@ -322,23 +322,28 @@ struct PaicarFinishView: View {
             submitPhotosOnly()
             return
         }
-        let p = PaicarProfileHolder.profile
-        let needMin = p?.rolesId != "4"
-        if needMin && draftImages.count < minImages {
-            toastMsg = "照片不能少于 \(minImages) 张"
-            return
-        }
-        if (Int(loadingNum) ?? 0) < 1 {
-            toastMsg = "请填写装车件数"
-            return
-        }
-        if leaveTime.isEmpty {
-            toastMsg = "请选择发车时间"
-            return
-        }
         saving = true
         Task {
             do {
+                // 用 load() 而不是缓存：进页面后 profile 可能还没拉取（nil），
+                // 用缓存会让 rolesId 判断失效，误要求 4 张照片
+                let p = try await PaicarProfileHolder.load()
+                let needMin = p.rolesId != "4"
+                if needMin && draftImages.count < minImages {
+                    saving = false
+                    toastMsg = "照片不能少于 \(minImages) 张"
+                    return
+                }
+                if (Int(loadingNum) ?? 0) < 1 {
+                    saving = false
+                    toastMsg = "请填写装车件数"
+                    return
+                }
+                if leaveTime.isEmpty {
+                    saving = false
+                    toastMsg = "请选择发车时间"
+                    return
+                }
                 // 1) 并行上传未传照片（对齐安卓：ret==200 即成功，不再检查 data.code，
                 //    并发上传避免 4 张串行太慢）
                 try await uploadAllImages()

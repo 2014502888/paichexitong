@@ -3,8 +3,9 @@ import UIKit
 import ImageIO
 
 // MARK: - 远程图片加载（兼容 iOS 14）
-// 优化：加磁盘缓存（已结单照片第二次打开秒开，之前无磁盘缓存每次重新下载原图慢）；
-// 网格用缩略解码（按目标像素解码，快且省内存），全屏预览用原图。
+// 网格用缩略解码（按目标像素解码，快且省内存），全屏预览用原图；
+// 只做内存缓存（会话内重复查看秒开），照片不落盘。
+// 网络层与派车统一：NSURLConnection 同步 + 硬超时，绕开 iOS 18 URLSession 挂起导致图片永远转圈。
 
 struct PaicarRemoteImage: View {
     let url: URL?
@@ -35,15 +36,23 @@ struct PaicarRemoteImage: View {
             self.image = img
             return
         }
-        var req = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 10)
-        URLSession.shared.dataTask(with: req) { data, resp, _ in
-            if let data = data, let resp = resp {
-                Self.cache.storeCachedResponse(CachedURLResponse(response: resp, data: data), for: req)
-                if let img = decode(data) {
+        var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 10)
+        // 与派车网络层一致：NSURLConnection 同步请求 + 硬超时，10 秒内必定返回，
+        // 绕开 iOS 18 URLSession 请求永久挂起（timeout/cancel 都不触发 completion）导致图片永远转圈
+        DispatchQueue.global().async {
+            var response: URLResponse?
+            do {
+                let data = try NSURLConnection.sendSynchronousRequest(req, returning: &response)
+                if let resp = response {
+                    Self.cache.storeCachedResponse(CachedURLResponse(response: resp, data: data), for: req)
+                }
+                if let img = self.decode(data) {
                     DispatchQueue.main.async { self.image = img }
                 }
+            } catch {
+                // 图片加载失败静默：留灰底占位，不打断页面
             }
-        }.resume()
+        }
     }
 
     /// 缩略解码：targetPixel>0 时用 ImageIO 按目标像素解码（网格图快+省内存），0 时原图解码

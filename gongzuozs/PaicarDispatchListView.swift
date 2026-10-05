@@ -323,7 +323,9 @@ struct PaicarDispatchListView: View {
                 var end = i + 1
                 while end < source.count && PaicarStyle.dayOf(source[end].createTime) == day { end += 1 }
                 for k in i..<end { l.append(.dispatch(source[k])) }
-                l.append(.hint(true))
+                // 只有最后一个（最旧）日期分组下面显示"没有更多了"，
+                // 中间分组 isLast=false，避免全部加载完后每个日期下重复提示
+                l.append(.hint(end >= source.count))
                 i = end
             }
             return l
@@ -717,10 +719,9 @@ struct PaicarDispatchListView: View {
         Task {
             do {
                 // 一次列表查询拿到本营业部全部申请单，只取 000/001（不逐个查状态，避免为已分配/待分配/已结单白跑请求）
-                guard let p = PaicarProfileHolder.profile else {
-                    toastMsg = "未登录"
-                    return
-                }
+                // 用 load() 而不是缓存：刚进模块还没加载过列表时 profile 为 nil，
+                // 直接用缓存会误报"未登录"导致一键撤回不可用
+                let p = try await PaicarProfileHolder.load()
                 let all = try await PaicarApi.applyOrderList(organId: p.organId, rolesId: p.rolesId)
                 var sts: [String: String] = [:]
                 for item in all {

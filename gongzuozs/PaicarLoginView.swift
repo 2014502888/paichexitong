@@ -479,7 +479,7 @@ final class AuthDialog {
                     PaicarSession.save(token: info.token, userId: info.userId, userNo: u, userPwd: p)
                     PaicarProfileHolder.profile = nil
                     // 重登成功：复位 justLoggedOut（之前点过取消再重登也能进系统，
-                    // 不会退出重进后永远停在登录页）。hasLoadedOnce 由 login 内部自检处理。
+                    // 不会退出重进后永远停在登录页）。login 无自检，后续业务请求 410 走顶号流程处理。
                     PaicarApi.justLoggedOut = false
                     PaicarApi.lastAuthError = ""
                     NotificationCenter.default.post(name: .paicarReloadAfterLogin, object: nil)

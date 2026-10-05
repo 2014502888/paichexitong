@@ -17,10 +17,6 @@ enum PaicarApi {
     static var onAuthExpired: (() -> Void)?
     // 写操作(撤回/提交/结单等)期间静默:不弹顶号框,只静默退出
     static var silentAuthExpired = false
-    // 重新登录期间忽略新的失效回调(防并发死循环)
-    static var relogining = false
-    // 切换瞬间没弹成,下个页面补弹
-    static var authExpiredPending = false
     // 已成功加载过一次数据: 只有真正进过系统后, 被顶号才弹框;
     // 首次登录/加载期间的400(空token竞态)不弹, 避免刚点登录就误弹。
     static var hasLoadedOnce = false
@@ -459,18 +455,19 @@ enum PaicarApi {
     static func quickRecall(id: String) async throws -> Bool {
         // 1) 先查当前状态，避免误删已进入派车/结单流程的单
         silentAuthExpired = true
+        // defer 兜底复位：无论成功/失败/抛错都恢复顶号弹窗，
+        // 防止删除接口抛错跳过手动复位导致 silentAuthExpired 泄漏卡死（之后被顶号再也不弹窗）
+        defer { silentAuthExpired = false }
         let detail: [String: Any]
         do {
             detail = try await applyOrderDetail(id: id)
         } catch PaicarError.authExpired {
-            silentAuthExpired = false
             throw PaicarError.authExpired   // 登录失效：上抛由调用方提示重新登录
         } catch {
             detail = [:]
         }
         let st = (detail["statusCode"] as? String) ?? ""
         guard st == "000" || st == "001" else {
-            silentAuthExpired = false
             return false
         }
         // 2) 001 先撤回成 000（失败忽略，由删除接口兜底）
@@ -479,7 +476,6 @@ enum PaicarApi {
         }
         // 3) 删除
         let r2 = try await post("App.DispatchCar_applyOrder.delete", params: [("id", id)])
-        silentAuthExpired = false
         if !r2.ok { throw PaicarError.api(r2.msg.isEmpty ? "删除失败" : r2.msg) }
         return true
     }

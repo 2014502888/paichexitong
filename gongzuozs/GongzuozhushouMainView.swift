@@ -70,8 +70,6 @@ struct GongzuozhushouMainView: View {
                 // PaicarApi.parseBody 的 moduleActive 检查 + 注销 onAuthExpired 解决。
                 PaicarProfileHolder.profile = nil
                 PaicarApi.onAuthExpired = nil
-                PaicarApi.relogining = false
-                PaicarApi.authExpiredPending = false
                 PaicarApi.silentAuthExpired = false
                 PaicarApi.moduleActive = false
             }
