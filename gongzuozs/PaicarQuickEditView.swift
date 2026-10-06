@@ -99,8 +99,9 @@ struct PaicarQuickEditView: View {
 
     private func rowCard(_ r: [String: String], index: Int) -> some View {
         let enabled = r["enabled"] == "1"
-        let isExpanded = expanded.indices.contains(index) ? expanded[index] : true
-        let showBody = enabled && isExpanded
+        let isExpanded = expanded.indices.contains(index) ? expanded[index] : false
+        // 展开/折叠不再依赖是否打钩：未打钩的行也可以手动展开查看/填写内容
+        let showBody = isExpanded
         return VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Button {
@@ -211,11 +212,7 @@ struct PaicarQuickEditView: View {
 
     private func toggleEnabled(_ idx: Int) {
         rows[idx]["enabled"] = rows[idx]["enabled"] == "1" ? "0" : "1"
-        // 勾上启用时自动展开，避免刚启用的配置看不到内容
-        if rows[idx]["enabled"] == "1", expanded.indices.contains(idx) {
-            expanded[idx] = true
-            rows[idx]["expanded"] = "1"
-        }
+        // 打钩不默认展开：展开/折叠只由折叠箭头控制（用户新要求）
     }
 
     private func toggleExpand(_ idx: Int) {
@@ -329,10 +326,10 @@ struct PaicarQuickEditView: View {
                     }
                 }
                 rows = loaded
-                // 折叠状态持久化：有 expanded 字段按保存的恢复；旧数据无字段则按 enabled 推断（启用展开、未启用折叠）
+                // 折叠状态持久化：有 expanded 字段按保存的恢复（用户手动折叠/展开过）；旧数据无字段默认折叠
                 expanded = loaded.map { row in
                     if let e = row["expanded"] { return e == "1" }
-                    return row["enabled"] == "1"
+                    return false
                 }
             } catch PaicarError.authExpired {
                 loading = false
