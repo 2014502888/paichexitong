@@ -734,9 +734,10 @@ struct PaicarDispatchListView: View {
                 let all = try await PaicarApi.applyOrderList(organId: p.organId, rolesId: p.rolesId)
                 var sts: [String: String] = [:]
                 for item in all {
-                    if let id = item["id"] as? String {
-                        sts[id] = (item["statusCode"] as? String) ?? ""
-                    }
+                    // 与列表页 fromJson 同口径：id/statusCode 服务端可能是数字类型，
+                    // 直接 as? String 会得 nil 导致"没有可撤回的申请单"，必须用兼容解析 s()
+                    let id = s(item, "id")
+                    if !id.isEmpty { sts[id] = s(item, "statusCode") }
                 }
                 // 交集：本地一键创建记录中仍为 000/001 的 = 真正可撤回
                 let recallable = ids.filter { sts[$0] == "000" || sts[$0] == "001" }

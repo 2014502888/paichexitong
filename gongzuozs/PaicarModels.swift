@@ -182,7 +182,7 @@ struct PaicarFleetCar: Identifiable {
 }
 
 /// 后端部分字段把空值序列化成字符串 "null"，统一转空串（对应安卓 s()）
-private func s(_ j: [String: Any], _ key: String) -> String {
+func s(_ j: [String: Any], _ key: String) -> String {
     let v = j[key]
     let t = (v as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
         ?? (v as? NSNumber)?.stringValue

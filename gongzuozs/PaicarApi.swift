@@ -500,7 +500,7 @@ enum PaicarApi {
         } catch {
             detail = [:]
         }
-        let st = (detail["statusCode"] as? String) ?? ""
+        let st = s(detail, "statusCode")
         guard st == "000" || st == "001" else {
             return false
         }

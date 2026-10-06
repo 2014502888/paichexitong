@@ -90,8 +90,25 @@ final class FBSHaptic: NSObject {
             if tx > w * 0.35 || vx > 300 {
                 generator?.impactOccurred(intensity: 1.0)
                 // 手势确认 pop：UIKit 层 pop 不会反向写回 SwiftUI 受控 NavigationLink(isActive:) 的状态
-                //（派车模块 isActive 绑定），发通知让主页面同步状态 → 重新 appear → 烟花正常触发
-                NotificationCenter.default.post(name: .navigationPopDetected, object: nil)
+                //（派车模块 isActive 绑定），发通知让主页面同步状态 → 重新 appear → 烟花正常触发。
+                // 注意：只在本次 pop 后导航栈只剩根（=pop 回主界面）时才通知；模块内 pop 一层
+                //（详情→列表）不发，否则主界面收到通知把 showPaicar 置 false，派车模块被整个退掉
+                //（表现为"返回一下就连跳两级回选择系统"）。
+                var nav: UINavigationController? = nil
+                var r: UIResponder? = g.view?.next
+                while let cur = r {
+                    if let n = cur as? UINavigationController { nav = n; break }
+                    if let vc = cur as? UIViewController, let n = vc.navigationController { nav = n; break }
+                    r = cur.next
+                }
+                if let nav = nav {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        // 转场结束后栈只剩根视图 = 已返回主界面
+                        if nav.viewControllers.count <= 1 {
+                            NotificationCenter.default.post(name: .navigationPopDetected, object: nil)
+                        }
+                    }
+                }
             }
             generator = nil
         case .cancelled, .failed:
