@@ -43,6 +43,16 @@ enum EdgeSwipeBack {
         }
         return nil
     }
+
+    /// 主导航栈是否已只剩根视图（= 已返回主界面）。
+    /// 手势 pop 通知的二次校验：模块内页面（详情/登记/申请配置）手势返回时
+    /// 栈里还有派车模块这一层（count=2），只有派车模块根页返回才 count=1。
+    static func isMainNavAtRoot() -> Bool {
+        guard let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene }).first?.windows.first,
+            let nav = findNav(window.rootViewController) else { return true }
+        return nav.viewControllers.count <= 1
+    }
 }
 
 // MARK: - 交互式边缘返回 modifier

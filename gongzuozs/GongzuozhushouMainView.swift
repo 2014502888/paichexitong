@@ -74,7 +74,13 @@ struct GongzuozhushouMainView: View {
             // NavigationLink(isActive:) 状态 → 派车模块 pop 后主页面视图层级不变、不重新 appear，
             // 烟花 onAppear 不触发。这里强制同步 isActive=false，让 SwiftUI 状态一致 → 主页面
             // 重新 appear → FireworksView.onAppear 播放烟花。
-            if showPaicar { showPaicar = false }
+            // 双保险：通知可能来自模块内页面（详情/登记/申请配置）的手势返回——那种情况栈里
+            // 还有派车模块层，不应退模块。延时复查主导航栈，确认真的只剩根（=已回主界面）才退。
+            if showPaicar {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                    if EdgeSwipeBack.isMainNavAtRoot() { showPaicar = false }
+                }
+            }
         }
         .onChange(of: showPaicar) { newValue in
             if !newValue {
