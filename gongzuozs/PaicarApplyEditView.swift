@@ -39,16 +39,18 @@ struct PaicarApplyEditView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 顶栏：← + 居中标题 + 右侧"提交"
+            // 顶栏：← + 居中标题 + 右侧"提交"（右侧等宽占位扣除返回键，保证标题绝对居中）
             HStack(spacing: 0) {
                 Button {
                     presentationMode.wrappedValue.dismiss()
                 } label: {
                     Image(systemName: "chevron.left").font(.system(size: 18, weight: .semibold)).foregroundColor(.blue).frame(width: 44, height: 44).contentShape(Rectangle())
                 }
-                Text(postId == nil ? "登记申请单" : "编辑申请单")
+                Text("申请单")
                     .font(.system(size: 18, weight: .bold))
                     .frame(maxWidth: .infinity)
+                // 右侧对称占位：扣除左侧返回键占位符
+                Color.clear.frame(width: 44, height: 44)
             }
             .foregroundColor(fg)
             .background(pageBg)
