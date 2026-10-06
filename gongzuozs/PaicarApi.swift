@@ -480,7 +480,9 @@ enum PaicarApi {
             ("remarks", ""),
         ])
         if !r.ok { throw PaicarError.api(r.msg.isEmpty ? "申请失败" : r.msg) }
-        let id = (r.dataMap["id"] as? String) ?? ""
+        // id 服务端返回数字时 as? String 得 nil，会导致本地 quickIds 没存上、一键撤回"没有可撤回"；
+        // 用兼容解析 s()（String/NSNumber 都支持）
+        let id = s(r.dataMap, "id")
         if id.isEmpty { throw PaicarError.api("申请失败：未返回单号") }
         return id
     }
