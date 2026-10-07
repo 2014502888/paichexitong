@@ -96,8 +96,8 @@ struct PaicarDispatchListView: View {
     @State private var showDatePicker = false
     @State private var selectedDate = Date()
     @State private var filterFinishedDay: String? = nil
-    // 批量结单（A 方案）：多选已分配车 → 批量结单页
-    @State private var batchMode = false
+    // 批量结单：独立 tab（全部 | 批量结单 | 已结单），进入时静默刷新已分配，勾选后抬头"开始结单"
+    @State private var showBatch = false
     @State private var batchSelected: Set<String> = []
     @State private var batchOrders: [PaicarDispatchOrder] = []
     @State private var showBatchFinish = false
@@ -110,58 +110,55 @@ struct PaicarDispatchListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 全部 | 已结单 切换
+            // 全部 | 批量结单 | 已结单 切换
             HStack(spacing: 8) {
-                tabBtn("全部", active: !showFinished) { setShowFinished(false) }
+                tabBtn("全部", active: !showFinished && !showBatch) { setShowAll() }
+                tabBtn("批量结单", active: showBatch) { setShowBatch(true) }
                 tabBtn("已结单", active: showFinished) { setShowFinished(true) }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
 
-            // 胶囊行：待派车/待分配/已分配（只在全部页显示）
-            if !showFinished && (!applies.isEmpty || !dispatches.isEmpty) {
-                if batchMode {
-                    // 批量结单模式：选择操作栏（只统计可结单的 004 已分配车）
-                    HStack(spacing: 8) {
-                        Text("已选 \(batchSelected.count) 部")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(fg)
-                        Spacer()
-                        Button("取消") {
-                            batchMode = false
-                            batchSelected.removeAll()
-                        }
-                        .font(.system(size: 13))
-                        .foregroundColor(fg.opacity(0.6))
-                        Button("开始结单") {
-                            startBatchFinish()
-                        }
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 5)
-                        .background(Capsule().fill(batchSelected.isEmpty ? Color.gray.opacity(0.5) : blue))
-                        .disabled(batchSelected.isEmpty)
+            // 批量结单抬头操作栏：标题居中 + 右侧"开始结单"（勾选后可点，取消按钮已去——返回全部/已结单再进都会刷新）
+            if showBatch {
+                HStack(spacing: 0) {
+                    Color.clear.frame(width: 96, height: 36) // 扣右侧按钮占位，标题绝对居中
+                    Text("批量结单（\(batchDispatches.count) 部）")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(fg)
+                        .frame(maxWidth: .infinity)
+                    Button("开始结单") {
+                        startBatchFinish()
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 6)
-                } else {
-                    HStack(spacing: 6) {
-                        capsule("待派车 \(applies.count)部", blue)
-                        capsule("待分配 \(dispatches.filter { $0.statusCode == "003" }.count)部", Color(red: 1.0, green: 0.60, blue: 0.0))
-                        capsule("已分配 \(dispatches.filter { $0.statusCode == "004" }.count)部", Color(red: 0.30, green: 0.68, blue: 0.31))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 6)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(batchSelected.isEmpty ? Color.gray.opacity(0.5) : blue))
+                    .disabled(batchSelected.isEmpty)
+                    .frame(width: 96)
                 }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 6)
+            }
+
+            // 胶囊行：待派车/待分配/已分配（只在全部页显示）
+            if !showFinished && !showBatch && (!applies.isEmpty || !dispatches.isEmpty) {
+                HStack(spacing: 6) {
+                    capsule("待派车 \(applies.count)部", blue)
+                    capsule("待分配 \(dispatches.filter { $0.statusCode == "003" }.count)部", Color(red: 1.0, green: 0.60, blue: 0.0))
+                    capsule("已分配 \(dispatches.filter { $0.statusCode == "004" }.count)部", Color(red: 0.30, green: 0.68, blue: 0.31))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
             }
 
             if loading {
                 Spacer()
                 ProgressView()
                 Spacer()
-            } else if error.isEmpty == false && (showFinished ? finishedList.isEmpty : (applies.isEmpty && dispatches.isEmpty)) {
+            } else if error.isEmpty == false && (showFinished ? finishedList.isEmpty : (showBatch ? batchDispatches.isEmpty : (applies.isEmpty && dispatches.isEmpty))) {
                 Spacer()
                 Text(error).font(.system(size: 14)).foregroundColor(fg)
                 // 登录失效：重试无效（旧 token 永远 410），换成"登入"直接换新 token 自动登入
@@ -177,13 +174,25 @@ struct PaicarDispatchListView: View {
                         .padding(.top, 12)
                 }
                 Spacer()
-            } else if showFinished ? finishedList.isEmpty : (applies.isEmpty && dispatches.isEmpty) {
+            } else if showFinished ? finishedList.isEmpty : (showBatch ? batchDispatches.isEmpty : (applies.isEmpty && dispatches.isEmpty)) {
                 Spacer()
                 Text("📭").font(.system(size: 50))
-                Text(showFinished ? "暂无已结单" : "暂无派车单")
+                Text(showFinished ? "暂无已结单" : (showBatch ? "暂无已分配车辆" : "暂无派车单"))
                     .font(.system(size: 16))
                     .foregroundColor(fg)
                 Spacer()
+            } else if showBatch {
+                // 批量结单列表：只显示已分配(004)车，整卡点击切换勾选
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach(batchDispatches, id: \.id) { o in
+                            Button { toggleBatchSelect(o.id) } label: { batchCard(o) }
+                                .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                }
             } else {
                 ScrollView {
                     VStack(spacing: 0) {
@@ -193,21 +202,13 @@ struct PaicarDispatchListView: View {
                                     Button { pushApplyId = o.id } label: { applyCard(o) }
                                         .buttonStyle(.plain)
                                 case .dispatch(let o):
-                                    if batchMode {
-                                        // 批量结单模式：整卡点击切换勾选（列表已只显示 004 已分配车）
-                                        Button {
-                                            toggleBatchSelect(o.id)
-                                        } label: { batchCard(o) }
-                                            .buttonStyle(.plain)
-                                    } else {
-                                        Button {
-                                            // 进详情前清除该单的"详情观察记录"：详情加载成功会重新写入，
-                                            // 加载失败则无记录 → 返回不误刷
-                                            PaicarFlags.detailSeenState.removeValue(forKey: o.id)
-                                            pushDispatchId = o.id
-                                        } label: { dispatchCard(o) }
-                                            .buttonStyle(.plain)
-                                    }
+                                    Button {
+                                        // 进详情前清除该单的"详情观察记录"：详情加载成功会重新写入，
+                                        // 加载失败则无记录 → 返回不误刷
+                                        PaicarFlags.detailSeenState.removeValue(forKey: o.id)
+                                        pushDispatchId = o.id
+                                    } label: { dispatchCard(o) }
+                                        .buttonStyle(.plain)
                                 case .hint(let isLast):
                                     moreHint(isLast: isLast)
                                 case .dateLabel(let day):
@@ -251,10 +252,6 @@ struct PaicarDispatchListView: View {
             Button("一键撤回") { quickRecall() }
             Button("申请配置") {
                 NotificationCenter.default.post(name: .paicarOpenQuickEdit, object: nil)
-            }
-            Button("批量结单") {
-                batchMode = true
-                batchSelected.removeAll()
             }
             Button("取消", role: .cancel) {}
         }
@@ -326,6 +323,7 @@ struct PaicarDispatchListView: View {
             // 结单成功后: 强制切回"全部", 并按脏标记刷新全部列表
             // (全部只归类待分配/待派车/已分配, 刚结的单自然从全部消失)
             if showFinished { showFinished = false; filterFinishedDay = nil }
+            if showBatch { showBatch = false; batchSelected.removeAll() }
             if PaicarFlags.dispatchDirty || PaicarFlags.finishedDirty {
                 PaicarFlags.dispatchDirty = false
                 PaicarFlags.finishedDirty = false
@@ -370,12 +368,6 @@ struct PaicarDispatchListView: View {
             // 最底部始终是"点击查看更多"按钮（可继续点），到底显示"没有更多了"
             l.append(.hint(true))
             return l
-        } else if batchMode {
-            // 批量结单模式：只显示已分配(004)的车——003 待分配没车牌结不了单，直接不显示
-            var l: [PaicarListItem] = []
-            for d in dispatches where d.statusCode == "004" { l.append(.dispatch(d)) }
-            l.append(.hint(true))
-            return l
         } else {
             var l: [PaicarListItem] = []
             for a in applies { l.append(.apply(a)) }
@@ -387,10 +379,26 @@ struct PaicarDispatchListView: View {
 
     // MARK: 加载
 
+    /// 批量结单可结单列表：只显示已分配(004)
+    private var batchDispatches: [PaicarDispatchOrder] {
+        dispatches.filter { $0.statusCode == "004" }
+    }
+
+    private func setShowAll() {
+        showFinished = false
+        showBatch = false
+        batchSelected.removeAll()
+        filterFinishedDay = nil
+        if !loading && applies.isEmpty && dispatches.isEmpty {
+            // 切回"全部"且数据为空时补加载，避免空列表一直不刷新
+            load()
+        }
+    }
+
     private func setShowFinished(_ v: Bool) {
         showFinished = v
-        // 切 tab 时退出批量结单模式
-        batchMode = false
+        // 切 tab 时退出批量结单 tab
+        showBatch = false
         batchSelected.removeAll()
         filterFinishedDay = nil
         if v {
@@ -398,6 +406,38 @@ struct PaicarDispatchListView: View {
         } else if !loading && applies.isEmpty && dispatches.isEmpty {
             // 切回"全部"且数据为空时补加载，避免空列表一直不刷新
             load()
+        }
+    }
+
+    /// 进入批量结单 tab：清勾选 + 静默刷新已分配（有更新用新的，失败保留旧数据不报错）
+    private func setShowBatch(_ v: Bool) {
+        showBatch = v
+        showFinished = false
+        filterFinishedDay = nil
+        batchSelected.removeAll()
+        if v {
+            refreshDispatchesSilently()
+        }
+    }
+
+    /// 静默刷新已分配列表：成功且有数据才覆盖 dispatches；失败/空保留旧数据（用户要求"没更新显示之前的"）
+    private func refreshDispatchesSilently() {
+        Task {
+            do {
+                let p = try await PaicarProfileHolder.load()
+                let raw = try await PaicarApi.dispatchOrderList(organId: p.organId, rolesId: p.rolesId, page: 1, perpage: 20)
+                let list = raw.map { PaicarDispatchOrder.fromJson($0) }
+                    .filter { $0.statusCode == "003" || $0.statusCode == "004" }
+                    .sorted { $0.statusCode < $1.statusCode }
+                if !list.isEmpty {
+                    await MainActor.run {
+                        dispatches = list
+                        dispatchPage = 1
+                    }
+                }
+            } catch {
+                // 静默：保留旧数据
+            }
         }
     }
 
@@ -422,7 +462,6 @@ struct PaicarDispatchListView: View {
             return
         }
         batchOrders = selected
-        batchMode = false
         batchSelected.removeAll()
         showBatchFinish = true
     }
