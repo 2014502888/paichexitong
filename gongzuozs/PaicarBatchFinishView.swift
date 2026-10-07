@@ -143,8 +143,7 @@ struct PaicarBatchFinishView: View {
                             submitAll()
                         }
                     } label: {
-                        let missing = minImages - currentDrafts.count
-                        Text(submitting ? "提交中…" : (missing > 0 ? "还需 \(missing) 张照片" : (current < orders.count - 1 ? "下一部" : "提交全部")))
+                        Text(submitting ? "提交中…" : (current < orders.count - 1 ? "下一部" : "提交全部"))
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -156,7 +155,17 @@ struct PaicarBatchFinishView: View {
                     .opacity(submitting || currentDrafts.count < minImages ? 0.5 : 1)
                     .padding(.horizontal, 16)
                     .padding(.top, 28)
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 4)
+
+                    // 照片未传满时的提示（原「跳过剩余」位置，不可点击）：
+                    // 非最后一部提示先传满才能点击下一部；最后一部提示先传满才能提交全部
+                    if currentDrafts.count < minImages {
+                        Text(current < orders.count - 1 ? "请先上传四张照片，才能点击下一部" : "请先上传四张照片，才能提交全部")
+                            .font(.system(size: 13))
+                            .foregroundColor(fg.opacity(0.55))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                    }
                 }
             }
             .background(pageBg)
