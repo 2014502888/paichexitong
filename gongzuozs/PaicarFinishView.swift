@@ -52,12 +52,29 @@ struct PaicarFinishView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     if let o = order {
-                        // 顶部行：车牌(前) + 邮路（邮路只取"-"后面的内容）
-                        Text(routeLine(o))
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(fg)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
+                        // 信息三行（对齐批量结单/列表卡片）：第一排「车型 - 司机 - 车牌」，第二排邮路，第三排客户名；居中
+                        let line1 = [o.specs, o.driverName, o.carNo].filter { !$0.isEmpty }.joined(separator: " - ")
+                        let info1 = line1.isEmpty ? o.orderNumber : line1
+                        let route = o.applyList.first.map { a -> String in
+                            let r = a.routeName.contains("-") ? String(a.routeName.split(separator: "-", maxSplits: 1)[1]) : a.routeName
+                            return r + (a.routeShortName.isEmpty ? "" : "(\(a.routeShortName))")
+                        } ?? ""
+                        let customers = o.applyList.map { $0.customerName }.filter { !$0.isEmpty }.joined(separator: "、")
+                        VStack(spacing: 4) {
+                            Text(info1)
+                                .frame(maxWidth: .infinity)
+                            if !route.isEmpty {
+                                Text(route)
+                                    .frame(maxWidth: .infinity)
+                            }
+                            if !customers.isEmpty {
+                                Text(customers)
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(fg)
+                        .padding(.vertical, 8)
 
                         // 相册(左) | 标题(中) | 拍照(右)
                         HStack(spacing: 0) {
