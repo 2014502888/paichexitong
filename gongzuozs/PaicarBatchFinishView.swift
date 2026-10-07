@@ -11,7 +11,7 @@ struct PaicarBatchFinishView: View {
     let orders: [PaicarDispatchOrder]
 
     @State private var current = 0
-    @State private var drafts: [[DraftImage]] = []
+    @State private var drafts: [[DraftImage]]
     @State private var results: [String: (ok: Bool, msg: String)] = [:]
     @State private var submitting = false
     @State private var showResult = false
@@ -23,14 +23,52 @@ struct PaicarBatchFinishView: View {
     private let minImages = 4
     private let maxImages = 4
 
-    private var currentOrder: PaicarDispatchOrder { orders[current] }
-    private var currentDrafts: [DraftImage] { drafts[current] }
+    // 崩溃修复：drafts 在 init 就按订单数初始化，杜绝 body 首次渲染先于 onAppear 时
+    // drafts[current] 数组越界（Swift 越界 = SIGTRAP 闪退，与 10-07 崩溃报告一致）
+    init(orders: [PaicarDispatchOrder]) {
+        self.orders = orders
+        _drafts = State(initialValue: orders.map { _ in [DraftImage]() })
+    }
+
+    // 安全访问：body 已做空列表保护，此处 indices 兜底防 current 异常越界
+    private var currentOrder: PaicarDispatchOrder {
+        orders.indices.contains(current) ? orders[current] : orders[0]
+    }
+    private var currentDrafts: [DraftImage] {
+        drafts.indices.contains(current) ? drafts[current] : []
+    }
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
     private var pageBg: Color { isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : .white }
     private var orange: Color { Color(red: 1.0, green: 0.60, blue: 0.0) }
 
     var body: some View {
+        // 空订单保护：没有可结单车辆时显示空态而非越界崩溃
+        if orders.isEmpty {
+            VStack(spacing: 16) {
+                Spacer()
+                Image(systemName: "car.2")
+                    .font(.system(size: 44))
+                    .foregroundColor(fg.opacity(0.4))
+                Text("没有可结单的已分配车辆")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(fg)
+                Button("返回") {
+                    presentationMode.wrappedValue.dismiss()
+                }
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(orange)
+                .cornerRadius(10)
+                .padding(.horizontal, 40)
+                Spacer()
+            }
+            .background(pageBg)
+            .navigationBarHidden(true)
+            return
+        }
         VStack(spacing: 0) {
             // 顶栏：返回 + 居中标题（批量结单）
             HStack(spacing: 0) {
