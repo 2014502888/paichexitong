@@ -134,7 +134,8 @@ struct PaicarBatchFinishView: View {
 
                     imagesGrid
 
-                    // 底部按钮：非最后一部 = 下一部；最后一部 = 提交全部
+                    // 底部按钮：非最后一部 = 下一部；最后一部 = 提交全部。
+                    // 当前单照片未传满 minImages 张时禁用，必须每部传满才能继续（不允许跳过）
                     Button {
                         if current < orders.count - 1 {
                             current += 1
@@ -142,7 +143,8 @@ struct PaicarBatchFinishView: View {
                             submitAll()
                         }
                     } label: {
-                        Text(submitting ? "提交中…" : (current < orders.count - 1 ? "下一部" : "提交全部"))
+                        let missing = minImages - currentDrafts.count
+                        Text(submitting ? "提交中…" : (missing > 0 ? "还需 \(missing) 张照片" : (current < orders.count - 1 ? "下一部" : "提交全部")))
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -150,24 +152,11 @@ struct PaicarBatchFinishView: View {
                             .background(orange)
                             .cornerRadius(10)
                     }
-                    .disabled(submitting)
+                    .disabled(submitting || currentDrafts.count < minImages)
+                    .opacity(submitting || currentDrafts.count < minImages ? 0.5 : 1)
                     .padding(.horizontal, 16)
                     .padding(.top, 28)
                     .padding(.bottom, 24)
-
-                    // 直接提交全部（跳过剩余未拍的单；已拍的单正常提交）
-                    if current < orders.count - 1 {
-                        Button {
-                            submitAll()
-                        } label: {
-                            Text("跳过剩余，直接提交已拍的")
-                                .font(.system(size: 13))
-                                .foregroundColor(fg.opacity(0.55))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                        }
-                        .disabled(submitting)
-                    }
                 }
             }
             .background(pageBg)
