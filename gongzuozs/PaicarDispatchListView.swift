@@ -860,7 +860,7 @@ struct PaicarDispatchListView: View {
     private func quickRecall() {
         let ids = PaicarApi.loadQuickIds()
         if ids.isEmpty {
-            toastMsg = "没有可撤回的申请单"
+            toastMsg = "没有可撤回的待派车申请单"
             return
         }
         Task {
@@ -877,18 +877,23 @@ struct PaicarDispatchListView: View {
                     let id = s(item, "id")
                     if !id.isEmpty { sts[id] = s(item, "statusCode") }
                 }
-                // 交集：本地一键创建记录中仍为 000/001 的 = 真正可撤回
-                let recallable = ids.filter { sts[$0] == "000" || sts[$0] == "001" }
-                // 本地记录中已进入流程（非 000/001）或已不存在的 → 自动移出
-                let stale = ids.filter { !(sts[$0] == "000" || sts[$0] == "001") }
-                if !stale.isEmpty { PaicarApi.saveQuickIds(recallable) }
+                // 交集：本地一键创建记录中仍为 001（待派车）的 = 真正可撤回
+                let recallable = ids.filter { sts[$0] == "001" }
+                // 000（未进入待派车/可编辑申请单）：保留本地记录，待转入 001 后再撤
+                let kept = ids.filter { sts[$0] == "000" }
+                // 本地记录中已进入派车/结单流程（非 000/001）或已不存在的 → 自动移出
+                let stale = ids.filter { sts[$0] != "000" && sts[$0] != "001" }
+                if !stale.isEmpty { PaicarApi.saveQuickIds(recallable + kept) }
                 if recallable.isEmpty {
-                    toastMsg = "没有可撤回的申请单（本地记录均已进入流程，已自动清理）"
+                    toastMsg = "没有可撤回的待派车申请单（未进入待派车的申请单可在申请单详情处理）"
                     return
                 }
-                let msg = stale.isEmpty
-                    ? "将撤回并删除 \(recallable.count) 张申请单，确定？"
-                    : "将撤回并删除 \(recallable.count) 张申请单，\(stale.count) 张已进入派车/结单流程将自动移出，确定？"
+                var extra: [String] = []
+                if !kept.isEmpty { extra.append("\(kept.count) 张未进入待派车状态暂不处理") }
+                if !stale.isEmpty { extra.append("\(stale.count) 张已进入派车/结单流程将自动移出") }
+                let msg = extra.isEmpty
+                    ? "将删除 \(recallable.count) 张待派车申请单，确定？"
+                    : "将删除 \(recallable.count) 张待派车申请单，\(extra.joined(separator: "，"))，确定？"
                 let alert = UIAlertController(title: "确认一键撤回？", message: msg, preferredStyle: .alert)
                 alert.addAction(UIAlertAction(title: "取消", style: .cancel))
                 alert.addAction(UIAlertAction(title: "确认撤回", style: .destructive) { _ in
@@ -926,13 +931,13 @@ struct PaicarDispatchListView: View {
                 load()
                 return
             }
-            // 已成功删除、已进入流程被跳过的都不再是可撤回申请单 → 移出本地记录；失败保留供重试
+            // 已成功删除、状态已变更被跳过的都不再是可撤回申请单 → 移出本地记录；失败保留供重试
             PaicarApi.saveQuickIds(remaining)
             var parts: [String] = []
-            if ok > 0 { parts.append("已撤回删除 \(ok) 张") }
-            if skipped > 0 { parts.append("\(skipped) 张已进入流程，跳过") }
+            if ok > 0 { parts.append("已删除 \(ok) 张待派车申请单") }
+            if skipped > 0 { parts.append("\(skipped) 张状态已变更，跳过") }
             if fail > 0 { parts.append("\(fail) 张失败") }
-            toastMsg = parts.isEmpty ? "没有可撤回的申请单" : parts.joined(separator: "，")
+            toastMsg = parts.isEmpty ? "没有可撤回的待派车申请单" : parts.joined(separator: "，")
             load()
         }
     }

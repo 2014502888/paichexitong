@@ -487,7 +487,8 @@ enum PaicarApi {
         return id
     }
 
-    /// 一键撤回并删除：仅 000 直接删、001 先撤回成 000 再删；002/003/004/999 或已不存在 一律跳过（不删）。返回 true=已删除 / false=跳过
+    /// 一键撤回并删除：仅 001（待派车）处理，直接删除（不再先撤回成 000）；000 保留待转入待派车后再撤；
+    /// 002/003/004/999 或已不存在 一律跳过（不删）。返回 true=已删除 / false=跳过
     static func quickRecall(id: String) async throws -> Bool {
         // 1) 先查当前状态，避免误删已进入派车/结单流程的单
         silentAuthExpired = true
@@ -503,14 +504,10 @@ enum PaicarApi {
             detail = [:]
         }
         let st = s(detail, "statusCode")
-        guard st == "000" || st == "001" else {
+        guard st == "001" else {
             return false
         }
-        // 2) 001 先撤回成 000（失败忽略，由删除接口兜底）
-        if st == "001" {
-            try? await post("App.DispatchCar_applyOrder.recall", params: [("id", id)])
-        }
-        // 3) 删除
+        // 2) 直接删除（原 APP 是 001 先撤回成 000 再删；若直接删 001 服务端拒绝，再退回两步）
         let r2 = try await post("App.DispatchCar_applyOrder.delete", params: [("id", id)])
         if !r2.ok { throw PaicarError.api(r2.msg.isEmpty ? "删除失败" : r2.msg) }
         return true
