@@ -133,7 +133,7 @@ struct PaicarDispatchListView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 12)
                 .padding(.bottom, 2)
-                Text("（请批量选择派车单结单）")
+                Text("（请选择派车单批量结单）")
                     .font(.system(size: 12))
                     .foregroundColor(isDark ? Color.white.opacity(0.6) : Color.gray)
                     .frame(maxWidth: .infinity)
