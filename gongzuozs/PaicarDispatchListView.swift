@@ -113,31 +113,24 @@ struct PaicarDispatchListView: View {
             // 全部 | 批量结单 | 已结单 切换
             HStack(spacing: 8) {
                 tabBtn("全部", active: !showFinished && !showBatch) { setShowAll() }
-                tabBtn("批量结单", active: showBatch) { setShowBatch(true) }
+                tabBtn("结单", active: showBatch) { setShowBatch(true) }
                 tabBtn("已结单", active: showFinished) { setShowFinished(true) }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
 
-            // 批量结单抬头操作栏：标题居中 + 右侧"开始结单"（勾选后可点，取消按钮已去——返回全部/已结单再进都会刷新）
+            // 结单 tab 抬头：开始结单按钮居中显示（标题"批量结单（N部）"已去除）
             if showBatch {
-                HStack(spacing: 0) {
-                    Color.clear.frame(width: 96, height: 36) // 扣右侧按钮占位，标题绝对居中
-                    Text("批量结单（\(batchDispatches.count) 部）")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(fg)
-                        .frame(maxWidth: .infinity)
-                    Button("开始结单") {
-                        startBatchFinish()
-                    }
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(batchSelected.isEmpty ? Color.gray.opacity(0.5) : blue))
-                    .disabled(batchSelected.isEmpty)
-                    .frame(width: 96)
+                Button("开始结单") {
+                    startBatchFinish()
                 }
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(batchSelected.isEmpty ? Color.gray.opacity(0.5) : blue))
+                .disabled(batchSelected.isEmpty)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 12)
                 .padding(.bottom, 6)
             }
