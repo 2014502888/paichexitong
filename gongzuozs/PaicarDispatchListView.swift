@@ -133,7 +133,7 @@ struct PaicarDispatchListView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 12)
                 .padding(.bottom, 2)
-                Text("请批量选择派车单结单")
+                Text("（请批量选择派车单结单）")
                     .font(.system(size: 12))
                     .foregroundColor(isDark ? Color.white.opacity(0.6) : Color.gray)
                     .frame(maxWidth: .infinity)
@@ -721,7 +721,7 @@ struct PaicarDispatchListView: View {
     private func batchCard(_ o: PaicarDispatchOrder) -> some View {
         let route = o.applyList.first.map { PaicarStyle.routeLine($0.routeName, $0.routeShortName) } ?? ""
         let customers = o.applyList.map { $0.customerName }.filter { !$0.isEmpty }
-        // 三排信息字号统一 16 加粗白字：第一排「车型 - 司机 - 车牌」（用「-」连接）；
+        // 三排信息字号统一 12 加粗白字：第一排「车型 - 司机 - 车牌」（用「-」连接）；
         // 第二排邮路；第三排客户名（原派车单号改为客户）
         let line1 = [o.specs, o.driverName, o.carNo].filter { !$0.isEmpty }.joined(separator: " - ")
         return HStack(spacing: 0) {
@@ -732,16 +732,16 @@ struct PaicarDispatchListView: View {
                 .padding(.trailing, 4)
             VStack(alignment: .leading, spacing: 4) {
                 Text(line1.isEmpty ? o.orderNumber : line1)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
                 if !route.isEmpty {
                     Text(route)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
                 }
                 if !customers.isEmpty {
                     Text(customers.joined(separator: "、"))
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
                 }
             }
