@@ -44,31 +44,40 @@ struct PaicarBatchFinishView: View {
 
     var body: some View {
         // 空订单保护：没有可结单车辆时显示空态而非越界崩溃
+        // （ViewBuilder 不支持 return 提前返回，必须 if/else 分支）
         if orders.isEmpty {
-            VStack(spacing: 16) {
-                Spacer()
-                Image(systemName: "car.2")
-                    .font(.system(size: 44))
-                    .foregroundColor(fg.opacity(0.4))
-                Text("没有可结单的已分配车辆")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(fg)
-                Button("返回") {
-                    presentationMode.wrappedValue.dismiss()
-                }
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(orange)
-                .cornerRadius(10)
-                .padding(.horizontal, 40)
-                Spacer()
-            }
-            .background(pageBg)
-            .navigationBarHidden(true)
-            return
+            emptyState
+        } else {
+            mainBody
         }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "car.2")
+                .font(.system(size: 44))
+                .foregroundColor(fg.opacity(0.4))
+            Text("没有可结单的已分配车辆")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(fg)
+            Button("返回") {
+                presentationMode.wrappedValue.dismiss()
+            }
+            .font(.system(size: 15, weight: .bold))
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .background(orange)
+            .cornerRadius(10)
+            .padding(.horizontal, 40)
+            Spacer()
+        }
+        .background(pageBg)
+        .navigationBarHidden(true)
+    }
+
+    private var mainBody: some View {
         VStack(spacing: 0) {
             // 顶栏：返回 + 居中标题（批量结单）
             HStack(spacing: 0) {
