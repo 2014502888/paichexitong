@@ -119,7 +119,7 @@ struct PaicarDispatchListView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
 
-            // 结单 tab 抬头：开始结单按钮居中显示（标题"批量结单（N部）"已去除）
+            // 结单 tab 抬头：开始结单按钮居中显示（标题"批量结单（N部）"已去除）+ 下方小字提示（浅色灰/深色灰白）
             if showBatch {
                 Button("开始结单") {
                     startBatchFinish()
@@ -132,7 +132,12 @@ struct PaicarDispatchListView: View {
                 .disabled(batchSelected.isEmpty)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 12)
-                .padding(.bottom, 6)
+                .padding(.bottom, 2)
+                Text("请批量选择派车单结单")
+                    .font(.system(size: 12))
+                    .foregroundColor(isDark ? Color.white.opacity(0.6) : Color.gray)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 6)
             }
 
             // 胶囊行：待派车/待分配/已分配（只在全部页显示）
