@@ -194,14 +194,10 @@ struct PaicarDispatchListView: View {
                                         .buttonStyle(.plain)
                                 case .dispatch(let o):
                                     if batchMode {
-                                        // 批量结单模式：整卡点击切换勾选（仅 004 已分配车可勾选）
+                                        // 批量结单模式：整卡点击切换勾选（列表已只显示 004 已分配车）
                                         Button {
-                                            if o.statusCode == "004" {
-                                                toggleBatchSelect(o.id)
-                                            } else {
-                                                toastMsg = "只有已分配的车才能结单"
-                                            }
-                                        } label: { dispatchCard(o) }
+                                            toggleBatchSelect(o.id)
+                                        } label: { batchCard(o) }
                                             .buttonStyle(.plain)
                                     } else {
                                         Button {
@@ -375,9 +371,9 @@ struct PaicarDispatchListView: View {
             l.append(.hint(true))
             return l
         } else if batchMode {
-            // 批量结单模式：只显示派车单（003 待分配不可勾选、004 已分配可勾选）
+            // 批量结单模式：只显示已分配(004)的车——003 待分配没车牌结不了单，直接不显示
             var l: [PaicarListItem] = []
-            for d in dispatches { l.append(.dispatch(d)) }
+            for d in dispatches where d.statusCode == "004" { l.append(.dispatch(d)) }
             l.append(.hint(true))
             return l
         } else {
@@ -681,6 +677,35 @@ struct PaicarDispatchListView: View {
         .padding(.vertical, 2)
     }
 
+    /// 批量结单模式卡片：车牌 + 邮路（邮路去固定前缀、短名括号），整卡已分配绿色白字
+    private func batchCard(_ o: PaicarDispatchOrder) -> some View {
+        let route = o.applyList.first.map { PaicarStyle.routeLine($0.routeName, $0.routeShortName) } ?? ""
+        return HStack(spacing: 0) {
+            Image(systemName: batchSelected.contains(o.id) ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 24))
+                .foregroundColor(.white)
+                .padding(.leading, 14)
+                .padding(.trailing, 4)
+            VStack(alignment: .leading, spacing: 4) {
+                if !o.carNo.isEmpty {
+                    Text(o.carNo)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                if !route.isEmpty {
+                    Text(route)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 14)
+            Spacer(minLength: 8)
+        }
+        .background(RoundedRectangle(cornerRadius: 14).fill(PaicarStyle.statusColor(o.statusCode)))
+        .padding(.vertical, 2)
+    }
+
     private func dispatchCard(_ o: PaicarDispatchOrder) -> some View {
         let status = o.statusName + (o.carNo.isEmpty ? "" : " \(o.carNo)")
         let customers = o.applyList.map { $0.customerName }.filter { !$0.isEmpty }
@@ -688,14 +713,6 @@ struct PaicarDispatchListView: View {
         let creators = o.applyList.filter { !$0.createName.isEmpty }
             .map { "\($0.createName) \($0.createTime) 申请派车" }
         return HStack(spacing: 0) {
-            if batchMode {
-                // 批量结单模式：左侧勾选圈（004 已分配可勾选，003 显示灰色不可选）
-                Image(systemName: batchSelected.contains(o.id) ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 24))
-                    .foregroundColor(o.statusCode == "004" ? .white : .white.opacity(0.35))
-                    .padding(.leading, 12)
-                    .padding(.trailing, 2)
-            }
             Spacer(minLength: 8)
             VStack(spacing: 4) {
                 statusTag(status, PaicarStyle.statusColor(o.statusCode), size: 15)
