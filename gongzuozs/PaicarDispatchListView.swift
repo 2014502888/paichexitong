@@ -730,19 +730,22 @@ struct PaicarDispatchListView: View {
                 .foregroundColor(.white)
                 .padding(.leading, 14)
                 .padding(.trailing, 4)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .center, spacing: 4) {
                 Text(line1.isEmpty ? o.orderNumber : line1)
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
                 if !route.isEmpty {
                     Text(route)
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
                 }
                 if !customers.isEmpty {
                     Text(customers.joined(separator: "、"))
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
                 }
             }
             .padding(.horizontal, 12)
