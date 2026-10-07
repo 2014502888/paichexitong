@@ -235,7 +235,7 @@ struct PaicarBatchFinishView: View {
         }
     }
 
-    // MARK: 结果视图（成功/失败/跳过 + 失败单重试）
+    // MARK: 结果视图（成功/失败 + 失败单重试）
 
     private var resultView: some View {
         let okCount = results.values.filter { $0.ok }.count
