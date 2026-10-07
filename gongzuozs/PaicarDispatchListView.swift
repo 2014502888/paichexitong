@@ -223,6 +223,12 @@ struct PaicarDispatchListView: View {
                     destination: PaicarDetailView(orderId: pushDispatchId ?? ""),
                     isActive: Binding(get: { pushDispatchId != nil }, set: { if !$0 { pushDispatchId = nil } })
                 ) { EmptyView() }
+                // 批量结单页：与其他子页面一致用 NavigationLink push（fullScreenCover 不在导航栈，
+                // 没有系统左缘右滑跟手返回；push 后自动获得全屏手势返回）
+                NavigationLink(
+                    destination: PaicarBatchFinishView(orders: batchOrders),
+                    isActive: $showBatchFinish
+                ) { EmptyView() }
             }
             .opacity(0)
         )
@@ -248,10 +254,7 @@ struct PaicarDispatchListView: View {
             }
             Button("取消", role: .cancel) {}
         }
-        // 批量结单页
-        .fullScreenCover(isPresented: $showBatchFinish) {
-            PaicarBatchFinishView(orders: batchOrders)
-        }
+        // 批量结单页已改为 NavigationLink push（见上方 ZStack），保留 showDatePicker 等 sheet
         .sheet(isPresented: $showDatePicker) {
             VStack(spacing: 16) {
                 Text("选择日期").font(.system(size: 16, weight: .bold)).padding(.top, 16)
