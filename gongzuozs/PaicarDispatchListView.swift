@@ -715,7 +715,9 @@ struct PaicarDispatchListView: View {
     /// 批量结单模式卡片：车牌 + 邮路（邮路去固定前缀、短名括号），整卡已分配绿色白字
     private func batchCard(_ o: PaicarDispatchOrder) -> some View {
         let route = o.applyList.first.map { PaicarStyle.routeLine($0.routeName, $0.routeShortName) } ?? ""
-        // 第一排：车型 - 司机 - 车牌（用「-」连接；已分配车辆三者必有，空项仍兜底跳过）；第二排：邮路；第三排小字：派车单号
+        let customers = o.applyList.map { $0.customerName }.filter { !$0.isEmpty }
+        // 三排信息字号统一 16 加粗白字：第一排「车型 - 司机 - 车牌」（用「-」连接）；
+        // 第二排邮路；第三排客户名（原派车单号改为客户）
         let line1 = [o.specs, o.driverName, o.carNo].filter { !$0.isEmpty }.joined(separator: " - ")
         return HStack(spacing: 0) {
             Image(systemName: batchSelected.contains(o.id) ? "checkmark.circle.fill" : "circle")
@@ -729,12 +731,14 @@ struct PaicarDispatchListView: View {
                     .foregroundColor(.white)
                 if !route.isEmpty {
                     Text(route)
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.85))
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
                 }
-                Text("派车单：\(o.orderNumber)")
-                    .font(.system(size: 11))
-                    .foregroundColor(.white.opacity(0.7))
+                if !customers.isEmpty {
+                    Text(customers.joined(separator: "、"))
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
