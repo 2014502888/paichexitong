@@ -719,16 +719,10 @@ struct PaicarDispatchListView: View {
                 .padding(.leading, 14)
                 .padding(.trailing, 4)
             VStack(alignment: .leading, spacing: 4) {
-                if !o.carNo.isEmpty {
-                    Text(o.carNo)
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.white)
-                }
-                if !route.isEmpty {
-                    Text(route)
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(.white)
-                }
+                // 车牌在前、邮路在后，合并一排显示（任一为空则只显示另一项）
+                Text([o.carNo, route].filter { !$0.isEmpty }.joined(separator: " "))
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 14)
