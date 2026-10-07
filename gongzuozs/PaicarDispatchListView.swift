@@ -96,6 +96,11 @@ struct PaicarDispatchListView: View {
     @State private var showDatePicker = false
     @State private var selectedDate = Date()
     @State private var filterFinishedDay: String? = nil
+    // 批量结单（A 方案）：多选已分配车 → 批量结单页
+    @State private var batchMode = false
+    @State private var batchSelected: Set<String> = []
+    @State private var batchOrders: [PaicarDispatchOrder] = []
+    @State private var showBatchFinish = false
 
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
@@ -115,14 +120,41 @@ struct PaicarDispatchListView: View {
 
             // 胶囊行：待派车/待分配/已分配（只在全部页显示）
             if !showFinished && (!applies.isEmpty || !dispatches.isEmpty) {
-                HStack(spacing: 6) {
-                    capsule("待派车 \(applies.count)部", blue)
-                    capsule("待分配 \(dispatches.filter { $0.statusCode == "003" }.count)部", Color(red: 1.0, green: 0.60, blue: 0.0))
-                    capsule("已分配 \(dispatches.filter { $0.statusCode == "004" }.count)部", Color(red: 0.30, green: 0.68, blue: 0.31))
+                if batchMode {
+                    // 批量结单模式：选择操作栏（只统计可结单的 004 已分配车）
+                    HStack(spacing: 8) {
+                        Text("已选 \(batchSelected.count) 部")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(fg)
+                        Spacer()
+                        Button("取消") {
+                            batchMode = false
+                            batchSelected.removeAll()
+                        }
+                        .font(.system(size: 13))
+                        .foregroundColor(fg.opacity(0.6))
+                        Button("开始结单") {
+                            startBatchFinish()
+                        }
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(batchSelected.isEmpty ? Color.gray.opacity(0.5) : blue))
+                        .disabled(batchSelected.isEmpty)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 6)
+                } else {
+                    HStack(spacing: 6) {
+                        capsule("待派车 \(applies.count)部", blue)
+                        capsule("待分配 \(dispatches.filter { $0.statusCode == "003" }.count)部", Color(red: 1.0, green: 0.60, blue: 0.0))
+                        capsule("已分配 \(dispatches.filter { $0.statusCode == "004" }.count)部", Color(red: 0.30, green: 0.68, blue: 0.31))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 6)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 6)
             }
 
             if loading {
@@ -161,13 +193,25 @@ struct PaicarDispatchListView: View {
                                     Button { pushApplyId = o.id } label: { applyCard(o) }
                                         .buttonStyle(.plain)
                                 case .dispatch(let o):
-                                    Button {
-                                        // 进详情前清除该单的"详情观察记录"：详情加载成功会重新写入，
-                                        // 加载失败则无记录 → 返回不误刷
-                                        PaicarFlags.detailSeenState.removeValue(forKey: o.id)
-                                        pushDispatchId = o.id
-                                    } label: { dispatchCard(o) }
-                                        .buttonStyle(.plain)
+                                    if batchMode {
+                                        // 批量结单模式：整卡点击切换勾选（仅 004 已分配车可勾选）
+                                        Button {
+                                            if o.statusCode == "004" {
+                                                toggleBatchSelect(o.id)
+                                            } else {
+                                                toastMsg = "只有已分配的车才能结单"
+                                            }
+                                        } label: { dispatchCard(o) }
+                                            .buttonStyle(.plain)
+                                    } else {
+                                        Button {
+                                            // 进详情前清除该单的"详情观察记录"：详情加载成功会重新写入，
+                                            // 加载失败则无记录 → 返回不误刷
+                                            PaicarFlags.detailSeenState.removeValue(forKey: o.id)
+                                            pushDispatchId = o.id
+                                        } label: { dispatchCard(o) }
+                                            .buttonStyle(.plain)
+                                    }
                                 case .hint(let isLast):
                                     moreHint(isLast: isLast)
                                 case .dateLabel(let day):
@@ -212,7 +256,15 @@ struct PaicarDispatchListView: View {
             Button("申请配置") {
                 NotificationCenter.default.post(name: .paicarOpenQuickEdit, object: nil)
             }
+            Button("批量结单") {
+                batchMode = true
+                batchSelected.removeAll()
+            }
             Button("取消", role: .cancel) {}
+        }
+        // 批量结单页
+        .fullScreenCover(isPresented: $showBatchFinish) {
+            PaicarBatchFinishView(orders: batchOrders)
         }
         .sheet(isPresented: $showDatePicker) {
             VStack(spacing: 16) {
@@ -322,6 +374,12 @@ struct PaicarDispatchListView: View {
             // 最底部始终是"点击查看更多"按钮（可继续点），到底显示"没有更多了"
             l.append(.hint(true))
             return l
+        } else if batchMode {
+            // 批量结单模式：只显示派车单（003 待分配不可勾选、004 已分配可勾选）
+            var l: [PaicarListItem] = []
+            for d in dispatches { l.append(.dispatch(d)) }
+            l.append(.hint(true))
+            return l
         } else {
             var l: [PaicarListItem] = []
             for a in applies { l.append(.apply(a)) }
@@ -335,6 +393,9 @@ struct PaicarDispatchListView: View {
 
     private func setShowFinished(_ v: Bool) {
         showFinished = v
+        // 切 tab 时退出批量结单模式
+        batchMode = false
+        batchSelected.removeAll()
         filterFinishedDay = nil
         if v {
             loadFinished()
@@ -342,6 +403,32 @@ struct PaicarDispatchListView: View {
             // 切回"全部"且数据为空时补加载，避免空列表一直不刷新
             load()
         }
+    }
+
+    // MARK: 批量结单（A 方案）
+
+    private func toggleBatchSelect(_ id: String) {
+        if batchSelected.contains(id) {
+            batchSelected.remove(id)
+        } else {
+            batchSelected.insert(id)
+        }
+    }
+
+    private func startBatchFinish() {
+        guard !batchSelected.isEmpty else {
+            toastMsg = "请先勾选要结单的车"
+            return
+        }
+        let selected = dispatches.filter { batchSelected.contains($0.id) }
+        guard !selected.isEmpty else {
+            toastMsg = "勾选的车已不在当前列表"
+            return
+        }
+        batchOrders = selected
+        batchMode = false
+        batchSelected.removeAll()
+        showBatchFinish = true
     }
 
     private func load(showLoading: Bool = true) {
@@ -601,6 +688,14 @@ struct PaicarDispatchListView: View {
         let creators = o.applyList.filter { !$0.createName.isEmpty }
             .map { "\($0.createName) \($0.createTime) 申请派车" }
         return HStack(spacing: 0) {
+            if batchMode {
+                // 批量结单模式：左侧勾选圈（004 已分配可勾选，003 显示灰色不可选）
+                Image(systemName: batchSelected.contains(o.id) ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 24))
+                    .foregroundColor(o.statusCode == "004" ? .white : .white.opacity(0.35))
+                    .padding(.leading, 12)
+                    .padding(.trailing, 2)
+            }
             Spacer(minLength: 8)
             VStack(spacing: 4) {
                 statusTag(status, PaicarStyle.statusColor(o.statusCode), size: 15)
