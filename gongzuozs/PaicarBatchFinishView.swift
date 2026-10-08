@@ -318,7 +318,9 @@ struct PaicarBatchFinishView: View {
             var msg = ""
             do {
                 let detail = try await PaicarApi.dispatchOrderDetail(id: id)
-                let st = detail["statusCode"] as? String ?? ""
+                var orderMap: [String: Any] = detail
+                if let o = detail["order"] as? [String: Any] { orderMap = o }
+                let st = s(orderMap, "statusCode")
                 if st != "004" {
                     msg = "状态已变更(\(st.isEmpty ? "非已分配" : st))，可能已被他人处理"
                 } else {
@@ -375,8 +377,12 @@ struct PaicarBatchFinishView: View {
                 }
                 do {
                     // 提交前查最新状态：防止已被他人结单/撤销/改分配
+                    // 注意：getDetail 返回嵌套 order 字段且 statusCode 可能是数字/字符串"null"，
+                    // 必须用全局兼容解析 s()（String/NSNumber/null 归一），否则会误判"非已分配"
                     let detail = try await PaicarApi.dispatchOrderDetail(id: order.id)
-                    let st = detail["statusCode"] as? String ?? ""
+                    var orderMap: [String: Any] = detail
+                    if let o = detail["order"] as? [String: Any] { orderMap = o }
+                    let st = s(orderMap, "statusCode")
                     if st != "004" {
                         res[order.id] = (false, "状态已变更(\(st.isEmpty ? "非已分配" : st))，可能已被他人处理")
                         continue
