@@ -300,12 +300,12 @@ struct PaicarDetailView: View {
                 }
             }
             if canFinish {
-                actionBtn("拍照结单", Color(red: 1.0, green: 0.60, blue: 0.0)) {
+                actionBtn("拍照结单", Color(red: 0.08, green: 0.28, blue: 0.75)) {
                     NotificationCenter.default.post(name: .paicarOpenFinish, object: nil, userInfo: ["orderId": o.id, "mode": ""])
                 }
             }
             if o.statusCode == "999" {
-                actionBtn("上传照片", Color(red: 1.0, green: 0.60, blue: 0.0)) {
+                actionBtn("上传照片", Color(red: 0.08, green: 0.28, blue: 0.75)) {
                     NotificationCenter.default.post(name: .paicarOpenFinish, object: nil, userInfo: ["orderId": o.id, "mode": "photos"])
                 }
             }
