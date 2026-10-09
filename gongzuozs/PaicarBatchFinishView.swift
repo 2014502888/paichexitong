@@ -40,7 +40,6 @@ struct PaicarBatchFinishView: View {
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
     private var pageBg: Color { isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : .white }
-    private var orange: Color { Color(red: 1.0, green: 0.60, blue: 0.0) }
 
     var body: some View {
         // 空订单保护：没有可结单车辆时显示空态而非越界崩溃
@@ -68,7 +67,7 @@ struct PaicarBatchFinishView: View {
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .frame(height: 44)
-            .background(orange)
+            .background(Color.blue)
             .cornerRadius(10)
             .padding(.horizontal, 40)
             Spacer()
