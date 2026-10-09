@@ -167,7 +167,7 @@ struct PaicarBatchFinishView: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(orange)
+                            .background(Color.blue)
                             .cornerRadius(10)
                     }
                     .disabled(submitting || currentDrafts.count < minImages)
@@ -298,7 +298,7 @@ struct PaicarBatchFinishView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
-                    .background(orange)
+                    .background(Color.blue)
                     .cornerRadius(10)
             }
             .padding(.horizontal, 16)
