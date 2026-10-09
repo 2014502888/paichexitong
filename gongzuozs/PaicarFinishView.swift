@@ -30,7 +30,6 @@ struct PaicarFinishView: View {
     private var inputBg: Color { isDark ? Color(red: 0.17, green: 0.17, blue: 0.17) : Color(white: 0.96) }
     private var border: Color { isDark ? Color(white: 0.33) : Color(white: 0.8) }
     private var hintColor: Color { isDark ? Color(white: 0.67) : Color(white: 0.53) }
-    private var orange: Color { Color(red: 1.0, green: 0.60, blue: 0.0) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -146,7 +145,7 @@ struct PaicarFinishView: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 48)
-                                .background(orange)
+                                .background(Color.blue)
                                 .cornerRadius(10)
                         }
                         .disabled(saving)
