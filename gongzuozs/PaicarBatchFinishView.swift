@@ -307,7 +307,9 @@ struct PaicarBatchFinishView: View {
                                 .disabled(submitting)
                             }
                             .padding(10)
-                            .background(isDark ? Color(red: 0.14, green: 0.14, blue: 0.14) : Color(white: 0.94))
+                            // 失败单卡片与其它卡片统一：深色纯黑+浅灰描边
+                            .background(isDark ? .black : Color(white: 0.94))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(isDark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
                             .cornerRadius(8)
                         }
                     }
