@@ -48,16 +48,18 @@ struct PaicarBatchFinishView: View {
     var body: some View {
         // 空订单保护：没有可结单车辆时显示空态而非越界崩溃
         // （ViewBuilder 不支持 return 提前返回，必须 if/else 分支）
-        if orders.isEmpty {
-            emptyState
-        } else {
-            mainBody
-        }
-        .overlay {
+        // 进度弹窗用 ZStack 叠放（不用 .overlay：Xcode 26.6 SDK 下无参 trailing closure 解析失败）
+        ZStack {
+            if orders.isEmpty {
+                emptyState
+            } else {
+                mainBody
+            }
             if showUploadProgress {
                 uploadProgressOverlay
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     /// 批量上传进度弹窗：居中遮罩 + 转圈 + 「已上传 M / N 张」，深浅自适应
