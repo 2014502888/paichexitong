@@ -119,7 +119,7 @@ struct PaicarQuickEditView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(fg)
                 if !showBody {
-                    // 折叠时：中间空白显示邮路 + 车型（如 5.3米 / 9.6米 / 7.6米），方便识别是哪个配置
+                    // 折叠时：中间空白显示车型 + 邮路（如 5.3米晋江南区电商-泉州品牌安踏4），车型在前不加空格
                     Text(foldedText)
                         .font(.system(size: 12))
                         .foregroundColor(hintColor)
@@ -209,18 +209,6 @@ struct PaicarQuickEditView: View {
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(border, lineWidth: 1))
             }
         }
-    }
-
-    private func field(_ hint: String, text: Binding<String>, keyboard: UIKeyboardType) -> some View {
-        TextField(hint, text: text)
-            .keyboardType(keyboard)
-            .font(.system(size: 13))
-            .foregroundColor(fg)
-            .accentColor(fg)
-            .multilineTextAlignment(.center)
-            .padding(.vertical, 10)
-            .background(inputBg)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(border, lineWidth: 1))
     }
 
     // MARK: 动作

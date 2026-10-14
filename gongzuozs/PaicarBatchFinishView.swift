@@ -484,15 +484,6 @@ struct PaicarBatchFinishView: View {
 
     // MARK: 辅助
 
-    private func section(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 14, weight: .bold))
-            .foregroundColor(fg)
-            .frame(maxWidth: .infinity)
-            .padding(.top, 20)
-            .padding(.bottom, 8)
-    }
-
     private func iconBtn(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 4) {
@@ -504,19 +495,6 @@ struct PaicarBatchFinishView: View {
             .foregroundColor(fg)
             .padding(.vertical, 6)
         }
-    }
-
-    /// 车牌排最前，邮路只取"-"后面的内容（对齐单笔结单 routeLine）
-    private func routeLine(_ o: PaicarDispatchOrder) -> String {
-        let tail = o.applyList.first.map { a -> String in
-            var t = a.routeName
-            if let idx = t.firstIndex(of: "-") {
-                t = String(t[t.index(after: idx)...])
-            }
-            if !a.routeShortName.isEmpty { t += "(\(a.routeShortName))" }
-            return t
-        } ?? ""
-        return (o.carNo.isEmpty ? "" : o.carNo + " ") + tail
     }
 
     /// 随机装车件数（按车型，对齐单笔结单）
