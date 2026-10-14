@@ -20,7 +20,7 @@ struct YuanchengkaijiView: View {
     private var fg: Color { isDark ? .white : .black }
     private var sub: Color { isDark ? Color(white: 0.78) : Color(white: 0.22) }
     private var pageBg: Color { isDark ? .black : .white }
-    private var cardBg: Color { isDark ? Color(red: 0.12, green: 0.12, blue: 0.12) : Color(red: 0.95, green: 0.95, blue: 0.95) }
+    private var cardBg: Color { isDark ? .black : Color(red: 0.95, green: 0.95, blue: 0.95) }
     private var statusColor: Color {
         if isLoggedIn { return isDark ? Color(red: 0.5, green: 0.86, blue: 0.55) : Color(red: 0.18, green: 0.49, blue: 0.2) }
         return isDark ? Color(red: 1.0, green: 0.55, blue: 0.55) : Color(red: 0.83, green: 0.18, blue: 0.18)
@@ -122,8 +122,8 @@ struct YuanchengkaijiView: View {
         .accentColor(fg)
         .padding(.horizontal, 12)
         .frame(width: w, height: 42)
-        .background(cardBg)
-        .cornerRadius(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(cardBg))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(isDark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
         .frame(maxWidth: .infinity)
     }
 

@@ -16,7 +16,7 @@ struct PaicarDashboardView: View {
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
     private var sub: Color { isDark ? Color(white: 0.7) : Color(white: 0.35) }
-    private var cardBg: Color { isDark ? Color(red: 0.12, green: 0.12, blue: 0.12) : .white }
+    private var cardBg: Color { isDark ? .black : .white }
     private var blue: Color { Color(red: 0.08, green: 0.28, blue: 0.75) }
 
     var body: some View {
@@ -100,6 +100,7 @@ struct PaicarDashboardView: View {
             row("已结单", finished, Color(red: 0.61, green: 0.15, blue: 0.69))
         }
         .background(RoundedRectangle(cornerRadius: 10).fill(cardBg))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(isDark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
     }
 
     private func row(_ label: String, _ vals: [Int], _ barColor: Color) -> some View {

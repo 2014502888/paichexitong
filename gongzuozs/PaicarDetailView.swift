@@ -93,7 +93,7 @@ struct PaicarDetailView: View {
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
     private var pageBg: Color { isDark ? .black : .white }
-    private var cardBg: Color { isDark ? Color(red: 0.12, green: 0.12, blue: 0.12) : .white }
+    private var cardBg: Color { isDark ? .black : .white }
     private var blue: Color { Color(red: 0.08, green: 0.28, blue: 0.75) }
 
     var body: some View {
@@ -194,6 +194,7 @@ struct PaicarDetailView: View {
         .frame(maxWidth: .infinity)
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 12).fill(cardBg))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(isDark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
     }
 
     // MARK: 信息块
@@ -215,6 +216,7 @@ struct PaicarDetailView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
         .background(RoundedRectangle(cornerRadius: 12).fill(cardBg))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(isDark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
     }
 
     private func infoTile(_ label: String, _ value: String) -> some View {
@@ -456,7 +458,7 @@ struct PaicarApplyDetailView: View {
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
     private var pageBg: Color { isDark ? .black : .white }
-    private var cardBg: Color { isDark ? Color(red: 0.12, green: 0.12, blue: 0.12) : .white }
+    private var cardBg: Color { isDark ? .black : .white }
     private var blue: Color { Color(red: 0.08, green: 0.28, blue: 0.75) }
 
     private var isCreator: Bool {
@@ -565,6 +567,7 @@ struct PaicarApplyDetailView: View {
         .frame(maxWidth: .infinity)
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 12).fill(cardBg))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(isDark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
     }
 
     private func infoRows(_ o: PaicarApplyOrder) -> some View {
@@ -582,6 +585,7 @@ struct PaicarApplyDetailView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
         .background(RoundedRectangle(cornerRadius: 12).fill(cardBg))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(isDark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
     }
 
     private func infoRow(_ label: String, _ value: String) -> some View {
