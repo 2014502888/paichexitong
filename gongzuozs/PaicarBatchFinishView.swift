@@ -19,6 +19,10 @@ struct PaicarBatchFinishView: View {
     @State private var showCamera = false
     @State private var toastMsg: String?
     @State private var retryDone = false
+    // 批量上传实时进度（B 方案：保持并行上传，显示「已上传 M / N 张」，N=各部照片数之和动态计算）
+    @State private var showUploadProgress = false
+    @State private var uploadDone = 0
+    @State private var uploadTotal = 0
 
     private let minImages = 4
     private let maxImages = 4
@@ -39,7 +43,7 @@ struct PaicarBatchFinishView: View {
     }
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
-    private var pageBg: Color { isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : .white }
+    private var pageBg: Color { isDark ? .black : .white }
 
     var body: some View {
         // 空订单保护：没有可结单车辆时显示空态而非越界崩溃
@@ -48,6 +52,29 @@ struct PaicarBatchFinishView: View {
             emptyState
         } else {
             mainBody
+        }
+        .overlay {
+            if showUploadProgress {
+                uploadProgressOverlay
+            }
+        }
+    }
+
+    /// 批量上传进度弹窗：居中遮罩 + 转圈 + 「已上传 M / N 张」，深浅自适应
+    private var uploadProgressOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4).ignoresSafeArea()
+            VStack(spacing: 14) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: fg))
+                    .scaleEffect(1.3)
+                Text("已上传 \(uploadDone) / \(uploadTotal) 张")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(fg)
+            }
+            .padding(28)
+            .background(RoundedRectangle(cornerRadius: 16).fill(isDark ? Color(white: 0.15) : Color(white: 0.97)))
+            .shadow(radius: 10)
         }
     }
 
@@ -354,6 +381,10 @@ struct PaicarBatchFinishView: View {
     private func submitAll() {
         if submitting { return }
         submitting = true
+        // 照片总数 = 各部已选照片数之和（动态计算，不写死，如 4 部=16 张、3 部=12 张）
+        uploadTotal = drafts.reduce(0) { $0 + $1.count }
+        uploadDone = 0
+        showUploadProgress = true
         Task {
             var res: [String: (ok: Bool, msg: String)] = [:]
             // 一次性拿 profile 判断是否需要最少 4 张
@@ -406,6 +437,7 @@ struct PaicarBatchFinishView: View {
             }
             results = res
             submitting = false
+            showUploadProgress = false
             showResult = true
         }
     }
@@ -430,6 +462,8 @@ struct PaicarBatchFinishView: View {
             for try await (i, msg) in group {
                 if msg == nil {
                     successIdx.append(i)
+                    // 每成功上传一张，主线程累加进度（并行上传也按完成数实时计数）
+                    await MainActor.run { uploadDone += 1 }
                 } else {
                     failed.append("第 \(i + 1) 张：\(msg ?? "")")
                 }
