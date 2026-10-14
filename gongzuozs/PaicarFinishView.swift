@@ -26,7 +26,7 @@ struct PaicarFinishView: View {
     private var photoOnly: Bool { mode == "photos" }
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
-    private var pageBg: Color { isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : .white }
+    private var pageBg: Color { isDark ? .black : .white }
     private var inputBg: Color { isDark ? Color(red: 0.17, green: 0.17, blue: 0.17) : Color(white: 0.96) }
     private var border: Color { isDark ? Color(white: 0.33) : Color(white: 0.8) }
     private var hintColor: Color { isDark ? Color(white: 0.67) : Color(white: 0.53) }

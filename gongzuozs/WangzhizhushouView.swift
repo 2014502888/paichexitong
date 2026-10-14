@@ -283,7 +283,7 @@ struct WangzhizhushouView: View {
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
     private var bg: Color { isDark ? .black : .white }
-    private var pageBg: Color { isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : .white }
+    private var pageBg: Color { isDark ? .black : .white }
     private var gray: Color { isDark ? Color(red: 0.69, green: 0.69, blue: 0.69) : Color(red: 0.62, green: 0.62, blue: 0.62) }
 
     var body: some View {
@@ -483,7 +483,7 @@ struct WangzhizhushouAccountView: View {
     @State private var toast: String?
 
     private var fg: Color { colorScheme == .dark ? .white : .black }
-    private var pageBg: Color { colorScheme == .dark ? Color(red: 0.07, green: 0.07, blue: 0.07) : .white }
+    private var pageBg: Color { colorScheme == .dark ? .black : .white }
     private var fieldBg: Color { colorScheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.12) : Color(red: 0.95, green: 0.95, blue: 0.95) }
 
     var body: some View {

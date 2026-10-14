@@ -6,7 +6,7 @@ struct GongzuozhushouMainView: View {
 
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
-    private var pageBg: Color { isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : .white }
+    private var pageBg: Color { isDark ? .black : .white }
 
     var body: some View {
         NavigationView {

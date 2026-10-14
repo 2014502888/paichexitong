@@ -19,7 +19,7 @@ struct YuanchengkaijiView: View {
     private var isDark: Bool { colorScheme == .dark }
     private var fg: Color { isDark ? .white : .black }
     private var sub: Color { isDark ? Color(white: 0.78) : Color(white: 0.22) }
-    private var pageBg: Color { isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : .white }
+    private var pageBg: Color { isDark ? .black : .white }
     private var cardBg: Color { isDark ? Color(red: 0.12, green: 0.12, blue: 0.12) : Color(red: 0.95, green: 0.95, blue: 0.95) }
     private var statusColor: Color {
         if isLoggedIn { return isDark ? Color(red: 0.5, green: 0.86, blue: 0.55) : Color(red: 0.18, green: 0.49, blue: 0.2) }
