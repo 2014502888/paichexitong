@@ -258,7 +258,9 @@ struct PaicarBatchFinishView: View {
             }
         }
         // 结果弹窗（失败单可单独重试）
-        .sheet(isPresented: $showResult) {
+        // 用 fullScreenCover 而非 sheet：sheet 是卡片弹窗，上下会露出系统卡片背景(深色=#121212)，
+        // 盖不住 pageBg；全屏覆盖后背景铺满整屏，深色统一纯黑
+        .fullScreenCover(isPresented: $showResult) {
             resultView
         }
     }
@@ -332,6 +334,8 @@ struct PaicarBatchFinishView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
         }
+        // 占满全屏再铺背景：确保深色模式下整屏(含上下)都是纯黑，不留系统灰色
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(pageBg)
     }
 
