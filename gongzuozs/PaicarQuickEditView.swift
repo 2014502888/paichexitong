@@ -187,8 +187,13 @@ struct PaicarQuickEditView: View {
 
     /// 车型规格带"米"单位：服务器值若已带"米"不重复加
     private func specWithUnit(_ s: String) -> String {
-        if s.isEmpty { return "" }
-        return s.hasSuffix("米") ? s : s + "米"
+        // 接口返回的车型值可能自带空格（如「5.3 米」或尾部空格），先清掉半角/全角空格再拼单位，保证显示「5.3米」
+        let clean = s
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "\u{3000}", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if clean.isEmpty { return "" }
+        return clean.hasSuffix("米") ? clean : clean + "米"
     }
 
     private func pickRow(_ label: String, value: String, hint: String, compact: Bool = false, action: @escaping () -> Void) -> some View {
