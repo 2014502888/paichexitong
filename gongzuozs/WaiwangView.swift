@@ -76,6 +76,20 @@ struct WaiwangView: View {
                     .foregroundColor(.blue)
                 } else {
                     HStack(spacing: 16) {
+                        // 🆕 粘贴：最左边；点击把剪贴板文本贴到输入框
+                        Button {
+                            if let str = UIPasteboard.general.string, !str.isEmpty {
+                                if engine.inputText.isEmpty {
+                                    engine.inputText = str
+                                } else {
+                                    engine.inputText += "\n" + str
+                                }
+                            }
+                        } label: {
+                            Text("粘贴")
+                                .font(.body)
+                                .foregroundColor(.blue)
+                        }
                         // 🆕 仅成功标签页且有结果时显示多选按钮
                         if selectedTab == .success && !engine.successResults.isEmpty {
                             Button {
@@ -94,20 +108,6 @@ struct WaiwangView: View {
                                 .foregroundColor(.blue)
                         }
                         .disabled(engine.results.isEmpty)
-                        // 🆕 粘贴：导航栏右侧，导出按钮旁边；点击把剪贴板文本贴到输入框
-                        Button {
-                            if let str = UIPasteboard.general.string, !str.isEmpty {
-                                if engine.inputText.isEmpty {
-                                    engine.inputText = str
-                                } else {
-                                    engine.inputText += "\n" + str
-                                }
-                            }
-                        } label: {
-                            Text("粘贴")
-                                .font(.body)
-                                .foregroundColor(.blue)
-                        }
                     }
                 }
             }
