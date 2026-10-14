@@ -102,12 +102,10 @@ struct PaicarQuickEditView: View {
         let isExpanded = expanded.indices.contains(index) ? expanded[index] : false
         // 展开/折叠不再依赖是否打钩：未打钩的行也可以手动展开查看/填写内容
         let showBody = isExpanded
-        // 折叠时的汇总文字：邮路 + 车型（如 5.3米 / 9.6米 / 7.6米），在 ViewBuilder 外拼好
+        // 折叠时的汇总文字：车型 + 邮路，不加空格（如 5.3米晋江南区电商-泉州品牌安踏4），在 ViewBuilder 外拼好
         let routeName = r["routeName"] ?? ""
         let specName = specWithUnit(r["carSpecs"] ?? "")
-        var foldedText = routeName
-        if !routeName.isEmpty && !specName.isEmpty { foldedText += " " }
-        foldedText += specName
+        let foldedText = specName + routeName
         return VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Button {
