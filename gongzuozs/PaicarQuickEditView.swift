@@ -115,8 +115,13 @@ struct PaicarQuickEditView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(fg)
                 if !showBody {
-                    // 折叠时：中间空白显示邮路，方便识别是哪个配置
-                    Text(r["routeName"] ?? "")
+                    // 折叠时：中间空白显示邮路 + 车型（如 5.3米 / 9.6米 / 7.6米），方便识别是哪个配置
+                    let routeName = r["routeName"] ?? ""
+                    let specName = specWithUnit(r["carSpecs"] ?? "")
+                    var foldedText = routeName
+                    if !routeName.isEmpty && !specName.isEmpty { foldedText += " " }
+                    foldedText += specName
+                    Text(foldedText)
                         .font(.system(size: 12))
                         .foregroundColor(hintColor)
                         .lineLimit(1)
@@ -179,6 +184,12 @@ struct PaicarQuickEditView: View {
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10).fill(tileBg))
         .padding(.vertical, 4)
+    }
+
+    /// 车型规格带"米"单位：服务器值若已带"米"不重复加
+    private func specWithUnit(_ s: String) -> String {
+        if s.isEmpty { return "" }
+        return s.hasSuffix("米") ? s : s + "米"
     }
 
     private func pickRow(_ label: String, value: String, hint: String, compact: Bool = false, action: @escaping () -> Void) -> some View {
