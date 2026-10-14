@@ -339,20 +339,10 @@ struct NeiwangView: View {
                 }
                 .disabled(engine.inputText.isEmpty)
             }
-            // 🆕 导入/粘贴：导航栏右侧（状态栏正下方、右上角）
+            // 🆕 粘贴/导入：导航栏右侧（粘贴在左，导入在最右，与外网查询一致）
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
-                    Button {
-                        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
-                        picker.delegate = NeiwangImportDelegate.shared
-                        picker.allowsMultipleSelection = false
-                        UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
-                    } label: {
-                        Image(systemName: "doc.badge.gearshape")
-                            .font(.body)
-                            .foregroundColor(.blue)
-                    }
-                    // 🆕 粘贴：导入旁边；点击把剪贴板文本贴到输入框
+                    // 🆕 粘贴：点击把剪贴板文本贴到输入框
                     Button {
                         if let str = UIPasteboard.general.string, !str.isEmpty {
                             if engine.inputText.isEmpty {
@@ -363,6 +353,16 @@ struct NeiwangView: View {
                         }
                     } label: {
                         Text("粘贴")
+                            .font(.body)
+                            .foregroundColor(.blue)
+                    }
+                    Button {
+                        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+                        picker.delegate = NeiwangImportDelegate.shared
+                        picker.allowsMultipleSelection = false
+                        UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
+                    } label: {
+                        Image(systemName: "doc.badge.gearshape")
                             .font(.body)
                             .foregroundColor(.blue)
                     }
