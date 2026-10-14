@@ -522,7 +522,7 @@ struct WangzhizhushouAccountView: View {
                                     .padding(.horizontal, 12)
                                     .frame(height: 42)
                                     .background(fieldBg)
-                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(colorScheme == .dark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
+                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(colorScheme == .dark ? Color(white: 0.28) : Color(white: 0.8), lineWidth: 1))
                                     .cornerRadius(8)
                                 SecureField("密码", text: bindingPassword(host))
                                     .font(.system(size: 15))
@@ -530,7 +530,7 @@ struct WangzhizhushouAccountView: View {
                                     .padding(.horizontal, 12)
                                     .frame(height: 42)
                                     .background(fieldBg)
-                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(colorScheme == .dark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
+                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(colorScheme == .dark ? Color(white: 0.28) : Color(white: 0.8), lineWidth: 1))
                                     .cornerRadius(8)
                             }
                             .padding(.vertical, 12)

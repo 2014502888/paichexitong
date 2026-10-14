@@ -123,7 +123,7 @@ struct YuanchengkaijiView: View {
         .padding(.horizontal, 12)
         .frame(width: w, height: 42)
         .background(RoundedRectangle(cornerRadius: 10).fill(cardBg))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(isDark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(isDark ? Color(white: 0.28) : Color(white: 0.8), lineWidth: 1))
         .frame(maxWidth: .infinity)
     }
 

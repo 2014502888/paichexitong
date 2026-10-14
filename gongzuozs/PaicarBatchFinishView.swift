@@ -77,7 +77,7 @@ struct PaicarBatchFinishView: View {
             .padding(28)
             // 深色下弹窗卡片也统一纯黑（与页面一致），用浅灰描边区分边界；浅色保持白卡片
             .background(RoundedRectangle(cornerRadius: 16).fill(isDark ? .black : Color(white: 0.97)))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(isDark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(isDark ? Color(white: 0.28) : Color(white: 0.8), lineWidth: 1))
             .shadow(radius: 10)
         }
     }
@@ -309,7 +309,7 @@ struct PaicarBatchFinishView: View {
                             .padding(10)
                             // 失败单卡片与其它卡片统一：深色纯黑+浅灰描边
                             .background(isDark ? .black : Color(white: 0.94))
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(isDark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(isDark ? Color(white: 0.28) : Color(white: 0.8), lineWidth: 1))
                             .cornerRadius(8)
                         }
                     }

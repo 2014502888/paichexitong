@@ -100,7 +100,7 @@ struct PaicarDashboardView: View {
             row("已结单", finished, Color(red: 0.61, green: 0.15, blue: 0.69))
         }
         .background(RoundedRectangle(cornerRadius: 10).fill(cardBg))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(isDark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(isDark ? Color(white: 0.28) : Color(white: 0.8), lineWidth: 1))
     }
 
     private func row(_ label: String, _ vals: [Int], _ barColor: Color) -> some View {
