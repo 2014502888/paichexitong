@@ -484,7 +484,7 @@ struct WangzhizhushouAccountView: View {
 
     private var fg: Color { colorScheme == .dark ? .white : .black }
     private var pageBg: Color { colorScheme == .dark ? .black : .white }
-    private var fieldBg: Color { colorScheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.12) : Color(red: 0.95, green: 0.95, blue: 0.95) }
+    private var fieldBg: Color { colorScheme == .dark ? .black : Color(red: 0.95, green: 0.95, blue: 0.95) }
 
     var body: some View {
         NavigationView {
@@ -522,6 +522,7 @@ struct WangzhizhushouAccountView: View {
                                     .padding(.horizontal, 12)
                                     .frame(height: 42)
                                     .background(fieldBg)
+                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(colorScheme == .dark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
                                     .cornerRadius(8)
                                 SecureField("密码", text: bindingPassword(host))
                                     .font(.system(size: 15))
@@ -529,6 +530,7 @@ struct WangzhizhushouAccountView: View {
                                     .padding(.horizontal, 12)
                                     .frame(height: 42)
                                     .background(fieldBg)
+                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(colorScheme == .dark ? Color(white: 0.28) : Color.clear, lineWidth: 1))
                                     .cornerRadius(8)
                             }
                             .padding(.vertical, 12)

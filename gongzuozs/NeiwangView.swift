@@ -339,17 +339,33 @@ struct NeiwangView: View {
                 }
                 .disabled(engine.inputText.isEmpty)
             }
-            // 🆕 导入：导航栏右侧（状态栏正下方、右上角）
+            // 🆕 导入/粘贴：导航栏右侧（状态栏正下方、右上角）
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
-                    picker.delegate = NeiwangImportDelegate.shared
-                    picker.allowsMultipleSelection = false
-                    UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
-                } label: {
-                    Image(systemName: "doc.badge.gearshape")
-                        .font(.body)
-                        .foregroundColor(.blue)
+                HStack(spacing: 16) {
+                    Button {
+                        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+                        picker.delegate = NeiwangImportDelegate.shared
+                        picker.allowsMultipleSelection = false
+                        UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
+                    } label: {
+                        Image(systemName: "doc.badge.gearshape")
+                            .font(.body)
+                            .foregroundColor(.blue)
+                    }
+                    // 🆕 粘贴：导入旁边；点击把剪贴板文本贴到输入框
+                    Button {
+                        if let str = UIPasteboard.general.string, !str.isEmpty {
+                            if engine.inputText.isEmpty {
+                                engine.inputText = str
+                            } else {
+                                engine.inputText += "\n" + str
+                            }
+                        }
+                    } label: {
+                        Text("粘贴")
+                            .font(.body)
+                            .foregroundColor(.blue)
+                    }
                 }
             }
         }
