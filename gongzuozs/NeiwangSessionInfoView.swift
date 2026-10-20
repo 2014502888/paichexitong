@@ -20,7 +20,7 @@ struct NeiwangSessionInfoView: View {
         VStack(spacing: 0) {
             // 抬头：居中（关闭按钮）
             ZStack {
-                Text("伪装参数")
+                Text("设置")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(colorScheme == .dark ? .white : .black)
                 HStack {
@@ -42,14 +42,11 @@ struct NeiwangSessionInfoView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
-                    // 🆕 导入：当前工号上面一行，蓝字（导入），功能与原右上角导入一致
+                    // 🆕 导入：当前工号上面一行，蓝字 导入，功能与原右上角导入一致
                     Button {
-                        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
-                        picker.delegate = NeiwangImportDelegate.shared
-                        picker.allowsMultipleSelection = false
-                        UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
+                        presentImporter()
                     } label: {
-                        Text("（导入）")
+                        Text("导入")
                             .font(.system(size: 13))
                             .foregroundColor(.blue)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -60,14 +57,10 @@ struct NeiwangSessionInfoView: View {
                     .id(refreshTick)
                     if cfg.isConfigured {
                         row("当前工号", value: userIdText)
-                        row("会话 sessionId", value: cfg.sessionId.isEmpty ? "未导入" : String(cfg.sessionId.prefix(24)) + (cfg.sessionId.count > 24 ? "…" : ""))
+                        row("会话 sessionId", value: cfg.sessionId.isEmpty ? "未导入" : cfg.sessionId)
                         row("User-Agent", value: cfg.userAgent.isEmpty ? "未导入" : cfg.userAgent)
                         row("请求形态", value: cfg.isIOS ? "iOS（不带安卓特征头）" : "安卓（带 X-Requested-With）")
                         row("Referer", value: cfg.isIOS ? "/so-novel-xm/" : "/sowebx/")
-                        Text("提示：导入什么抓包就伪装成什么设备。未导入会话时请求会先取 token 失败，不会发出空参数请求。")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         Text("未导入会话，暂无参数")
                             .font(.system(size: 14))
@@ -84,6 +77,18 @@ struct NeiwangSessionInfoView: View {
             NeiwangImportDelegate.shared.onImported = { refreshTick += 1 }
             refreshTick += 1
         }
+    }
+
+    // 🆕 从设置页弹导入：用最顶层已呈现的控制器，避免 sheet 内 present 无效
+    private func presentImporter() {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+        picker.delegate = NeiwangImportDelegate.shared
+        picker.allowsMultipleSelection = false
+        guard let host = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene }).first?.windows.first?.rootViewController else { return }
+        var top = host
+        while let presented = top.presentedViewController { top = presented }
+        top.present(picker, animated: true)
     }
 
     private var userIdText: String {
