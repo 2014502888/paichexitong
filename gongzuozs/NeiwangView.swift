@@ -344,7 +344,7 @@ struct NeiwangView: View {
                 }
                 .disabled(engine.inputText.isEmpty)
             }
-            // 🆕 粘贴/导入：导航栏右侧（粘贴在左，导入在最右，与外网查询一致）
+            // 🆕 粘贴/设置：导航栏右侧（粘贴在左，设置在最右）
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
                     // 🆕 粘贴：点击把剪贴板文本贴到输入框
