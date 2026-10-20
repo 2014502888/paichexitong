@@ -295,6 +295,8 @@ struct NeiwangView: View {
     // 🆕 会话失效弹窗
     @State private var showSessionExpiredAlert = false
     @State private var showNoHarAlert = false
+    // 🆕 伪装参数页
+    @State private var showSessionInfo = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -370,6 +372,8 @@ struct NeiwangView: View {
             }
         }
         .sheet(item: $selectedResult) { r in NeiwangDetailSheet(result: r) }
+        // 🆕 伪装参数页
+        .sheet(isPresented: $showSessionInfo) { NeiwangSessionInfoView() }
         // 🆕 会话失效：弹窗提示重新导入 HAR
         .onChange(of: engine.sessionExpired) { expired in
             if expired { showSessionExpiredAlert = true }
@@ -435,6 +439,19 @@ struct NeiwangView: View {
                             .foregroundColor(engine.isQuerying ? Color.gray.opacity(0.4) : Color.blue)
                     }
                     .disabled(engine.isQuerying)
+                }
+
+                // 🆕 伪装参数设置：并发旁，蓝色图标+蓝字
+                Button {
+                    showSessionInfo = true
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "gearshape")
+                            .font(.caption)
+                        Text("设置")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.blue)
                 }
 
                 Button {
