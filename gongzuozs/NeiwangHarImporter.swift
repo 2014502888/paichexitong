@@ -23,6 +23,7 @@ enum NeiwangHarImporter {
             var sessionId = ""
             var userAgent = ""
             var userId = ""
+            var userName = ""
 
             for entry in entries {
                 guard let request = entry["request"] as? [String: Any],
@@ -58,7 +59,21 @@ enum NeiwangHarImporter {
                     userId = uid
                 }
 
-                if !sessionId.isEmpty && !userAgent.isEmpty && !userId.isEmpty { break }
+                // 🆕 userId/userName：包里没有 URL 参数时，从响应体提取
+                // （登录/员工信息接口响应含 userId/employeeId/_id 与 employeeName/displayname/userName）
+                if (userId.isEmpty || userName.isEmpty),
+                   let response = entry["response"] as? [String: Any],
+                   let content = response["content"] as? [String: Any],
+                   let text = content["text"] as? String {
+                    if userId.isEmpty {
+                        userId = extract("(?:userId|employeeId|\"_id\")\":\"(E[^\"]+)\"", from: text) ?? ""
+                    }
+                    if userName.isEmpty {
+                        userName = extract("(?:employeeName|displayname|userName)\":\"([^\"]+)\"", from: text) ?? ""
+                    }
+                }
+
+                if !sessionId.isEmpty && !userAgent.isEmpty && !userId.isEmpty && !userName.isEmpty { break }
             }
 
             if sessionId.isEmpty {
@@ -66,13 +81,22 @@ enum NeiwangHarImporter {
                 return
             }
 
-            NeiwangHarConfig.shared.save(sessionId: sessionId, userAgent: userAgent, userId: userId)
+            NeiwangHarConfig.shared.save(sessionId: sessionId, userAgent: userAgent, userId: userId, userName: userName)
             // 🆕 清除旧 token 缓存，新 sessionId 立即生效，无需重启 App
             Neiwang.shared.resetToken()
             showToast("导入成功，立即生效")
         } catch {
             showToast("HAR导入失败: \(error.localizedDescription)")
         }
+    }
+
+    /// 正则取第一个捕获组
+    private static func extract(_ pattern: String, from text: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        guard let m = regex.firstMatch(in: text, range: range),
+              let r = Range(m.range(at: 1), in: text) else { return nil }
+        return String(text[r])
     }
 
     private static func showToast(_ message: String) {

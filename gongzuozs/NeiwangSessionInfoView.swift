@@ -94,7 +94,8 @@ struct NeiwangSessionInfoView: View {
     private var userIdText: String {
         let id = cfg.userId
         if id.isEmpty { return "未导入" }
-        let name = knownUsers[id] ?? ""
+        // 🆕 优先包里解析出的真实姓名，其次已知映射表
+        let name = cfg.userName.isEmpty ? (knownUsers[id] ?? "") : cfg.userName
         return name.isEmpty ? id : "\(name)（\(id)）"
     }
 
