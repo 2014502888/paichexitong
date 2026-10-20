@@ -22,6 +22,7 @@ enum NeiwangHarImporter {
 
             var sessionId = ""
             var userAgent = ""
+            var userId = ""
 
             for entry in entries {
                 guard let request = entry["request"] as? [String: Any],
@@ -48,7 +49,16 @@ enum NeiwangHarImporter {
                     }
                 }
 
-                if !sessionId.isEmpty && !userAgent.isEmpty { break }
+                // 🆕 userId：优先从 URL query 参数取（工单/查询接口均带 userId=）
+                if userId.isEmpty, let urlStr = request["url"] as? String,
+                   let comps = URLComponents(string: urlStr),
+                   let items = comps.queryItems,
+                   let uid = items.first(where: { $0.name == "userId" })?.value,
+                   !uid.isEmpty {
+                    userId = uid
+                }
+
+                if !sessionId.isEmpty && !userAgent.isEmpty && !userId.isEmpty { break }
             }
 
             if sessionId.isEmpty {
@@ -56,7 +66,7 @@ enum NeiwangHarImporter {
                 return
             }
 
-            NeiwangHarConfig.shared.save(sessionId: sessionId, userAgent: userAgent)
+            NeiwangHarConfig.shared.save(sessionId: sessionId, userAgent: userAgent, userId: userId)
             // 🆕 清除旧 token 缓存，新 sessionId 立即生效，无需重启 App
             Neiwang.shared.resetToken()
             showToast("导入成功，立即生效")

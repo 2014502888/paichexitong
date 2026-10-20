@@ -10,8 +10,13 @@ class Neiwang: NSObject, URLSessionDelegate {
     static let shared = Neiwang()
 
     private let baseURL = "http://211.156.201.20:8012"
-    private let userId = "E00000097801"
     private let from = "xm"
+
+    /// 🆕 同工号两用：优先取 HAR 解析出的工号，无则回退旧值
+    private var userId: String {
+        let cfg = NeiwangHarConfig.shared
+        return cfg.userId.isEmpty ? "E00000097801" : cfg.userId
+    }
 
     private var token: String?
     private let tokenLock = NSLock()
