@@ -59,7 +59,7 @@ struct NeiwangSessionInfoView: View {
                         row("当前工号", value: userIdText)
                         row("会话 sessionId", value: cfg.sessionId.isEmpty ? "未导入" : cfg.sessionId)
                         row("User-Agent", value: cfg.userAgent.isEmpty ? "未导入" : cfg.userAgent)
-                        row("请求形态", value: cfg.isIOS ? "iOS（不带安卓特征头）" : "安卓（带 X-Requested-With）")
+                        row("请求形态", value: cfg.isIOS ? "iOS" : "安卓")
                         row("Referer", value: cfg.isIOS ? "/so-novel-xm/" : "/sowebx/")
                     } else {
                         Text("未导入会话，暂无参数")
