@@ -4,9 +4,12 @@ import UniformTypeIdentifiers
 
 class NeiwangImportDelegate: NSObject, UIDocumentPickerDelegate {
     static let shared = NeiwangImportDelegate()
+    // 🆕 导入完成回调：设置页导入后刷新显示
+    var onImported: (() -> Void)?
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
         guard let url = urls.first else { return }
         NeiwangHarImporter.importHar(from: url)
+        onImported?()
     }
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
         controller.dismiss(animated: true)
@@ -358,15 +361,15 @@ struct NeiwangView: View {
                             .font(.body)
                             .foregroundColor(.blue)
                     }
+                    // 🆕 设置：右上角（伪装参数页入口），图标与左右导航栏图标对齐
                     Button {
-                        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
-                        picker.delegate = NeiwangImportDelegate.shared
-                        picker.allowsMultipleSelection = false
-                        UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
+                        showSessionInfo = true
                     } label: {
-                        Image(systemName: "doc.badge.gearshape")
+                        Image(systemName: "gearshape")
                             .font(.body)
                             .foregroundColor(.blue)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
                 }
             }
@@ -439,19 +442,6 @@ struct NeiwangView: View {
                             .foregroundColor(engine.isQuerying ? Color.gray.opacity(0.4) : Color.blue)
                     }
                     .disabled(engine.isQuerying)
-                }
-
-                // 🆕 伪装参数设置：并发旁，蓝色图标+蓝字
-                Button {
-                    showSessionInfo = true
-                } label: {
-                    HStack(spacing: 2) {
-                        Image(systemName: "gearshape")
-                            .font(.caption)
-                        Text("设置")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.blue)
                 }
 
                 Button {

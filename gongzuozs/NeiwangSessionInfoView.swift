@@ -5,6 +5,8 @@ import UIKit
 struct NeiwangSessionInfoView: View {
     @Environment(\.presentationMode) var presentationMode
     @Environment(\.colorScheme) private var colorScheme
+    // 🆕 导入完成后强制刷新显示
+    @State private var refreshTick = 0
 
     private var cfg: NeiwangHarConfig { NeiwangHarConfig.shared }
 
@@ -40,6 +42,22 @@ struct NeiwangSessionInfoView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
+                    // 🆕 导入：当前工号上面一行，蓝字（导入），功能与原右上角导入一致
+                    Button {
+                        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+                        picker.delegate = NeiwangImportDelegate.shared
+                        picker.allowsMultipleSelection = false
+                        UIApplication.shared.windows.first?.rootViewController?.present(picker, animated: true)
+                    } label: {
+                        Text("（导入）")
+                            .font(.system(size: 13))
+                            .foregroundColor(.blue)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                            .background(colorScheme == .dark ? Color(UIColor.systemGray6) : Color.white)
+                            .cornerRadius(8)
+                    }
+                    .id(refreshTick)
                     if cfg.isConfigured {
                         row("当前工号", value: userIdText)
                         row("会话 sessionId", value: cfg.sessionId.isEmpty ? "未导入" : String(cfg.sessionId.prefix(24)) + (cfg.sessionId.count > 24 ? "…" : ""))
@@ -60,6 +78,11 @@ struct NeiwangSessionInfoView: View {
                 .padding(16)
             }
             .background(colorScheme == .dark ? Color.black : Color(UIColor.systemGroupedBackground))
+        }
+        // 🆕 设置页打开时接管导入回调；导入完成后强制刷新参数显示
+        .onAppear {
+            NeiwangImportDelegate.shared.onImported = { refreshTick += 1 }
+            refreshTick += 1
         }
     }
 
