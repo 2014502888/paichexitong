@@ -66,10 +66,12 @@ enum NeiwangHarImporter {
                    let content = response["content"] as? [String: Any],
                    let text = content["text"] as? String {
                     if userId.isEmpty {
-                        userId = extract("(?:userId|employeeId|\"_id\")\":\"(E[^\"]+)\"", from: text) ?? ""
+                        userId = extract("\"(?:userId|employeeId|_id)\":\"(E[^\"]+)\"", from: text) ?? ""
                     }
-                    if userName.isEmpty {
-                        userName = extract("(?:employeeName|displayname|userName)\":\"([^\"]+)\"", from: text) ?? ""
+                    // 名字：仅当本响应同时含该工号时提取（登录/员工信息响应），
+                    // 避免抓到联系人/消息列表里的 displayname（如"调度指令消息"）
+                    if userName.isEmpty, !userId.isEmpty, text.contains(userId) {
+                        userName = extract("\"(?:userName|employeeName|displayname)\":\"([^\"]+)\"", from: text) ?? ""
                     }
                 }
 
