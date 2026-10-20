@@ -394,6 +394,10 @@ struct PaicarQuickEditView: View {
         saved = true
         toastError = false
         toastMsg = "配置已保存"
+        // 保存后自动返回派车单列表页（与申请单页一致，toast 短显示跟随返回）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            presentationMode.wrappedValue.dismiss()
+        }
     }
 
     private func present(_ alert: UIAlertController) {
